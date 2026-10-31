@@ -1,0 +1,88 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="s1" name="1 - What it does">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" page="1" pageScale="1" pageWidth="1280" pageHeight="720" background="#0B1220">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="t" value="Hormuz Pulse" style="text;html=1;fontSize=48;fontStyle=1;fontColor=#FFFFFF;align=left;" vertex="1" parent="1"><mxGeometry x="60" y="40" width="700" height="70" as="geometry"/></mxCell>
+        <mxCell id="st" value="Where could Brent crude be in 48 hours? A public-data range plus a Gemini research team on the Strait of Hormuz." style="text;html=1;fontSize=20;fontColor=#9FB3C8;align=left;whiteSpace=wrap;" vertex="1" parent="1"><mxGeometry x="60" y="115" width="1100" height="60" as="geometry"/></mxCell>
+        <mxCell id="a" value="&lt;b&gt;1. Range model&lt;/b&gt;&lt;br&gt;FRED Brent + OVX implied volatility&lt;br&gt;Latest Brent futures close as the anchor&lt;br&gt;10th / 50th / 90th percentile range" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#13233A;strokeColor=#38BDF8;fontColor=#FFFFFF;fontSize=16;arcSize=8;" vertex="1" parent="1"><mxGeometry x="60" y="230" width="350" height="190" as="geometry"/></mxCell>
+        <mxCell id="b" value="&lt;b&gt;2. Backtest&lt;/b&gt;&lt;br&gt;600 walk-forward forecasts&lt;br&gt;79.8% landed inside the 80% range&lt;br&gt;No method beat &quot;price stays the same&quot;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#13233A;strokeColor=#34D399;fontColor=#FFFFFF;fontSize=16;arcSize=8;" vertex="1" parent="1"><mxGeometry x="465" y="230" width="350" height="190" as="geometry"/></mxCell>
+        <mxCell id="c" value="&lt;b&gt;3. Chat + research team&lt;/b&gt;&lt;br&gt;Greetings and follow-ups in seconds&lt;br&gt;&quot;Predict Brent&quot; runs the agent pipeline (30 to 90 s)&lt;br&gt;Session memory for one hour" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#13233A;strokeColor=#818CF8;fontColor=#FFFFFF;fontSize=16;arcSize=8;" vertex="1" parent="1"><mxGeometry x="870" y="230" width="350" height="190" as="geometry"/></mxCell>
+        <mxCell id="e1" style="endArrow=classic;strokeColor=#9FB3C8;strokeWidth=2;" edge="1" parent="1" source="a" target="b"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e2" style="endArrow=classic;strokeColor=#9FB3C8;strokeWidth=2;" edge="1" parent="1" source="b" target="c"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="n" value="Read the range as a risk band, not a price target. Educational only, not financial advice. Data: public sources only." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2A2410;strokeColor=#FBBF24;fontColor=#FDE68A;fontSize=16;" vertex="1" parent="1"><mxGeometry x="60" y="480" width="1160" height="70" as="geometry"/></mxCell>
+        <mxCell id="u" value="Live: https://hormuz-pulse-2o4l63xkqq-nw.a.run.app" style="text;html=1;fontSize=18;fontColor=#38BDF8;align=left;" vertex="1" parent="1"><mxGeometry x="60" y="600" width="900" height="40" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="s2" name="2 - Agent architecture">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" page="1" pageScale="1" pageWidth="1280" pageHeight="720" background="#0B1220">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="t" value="How the agents work together (Google ADK, one process)" style="text;html=1;fontSize=32;fontStyle=1;fontColor=#FFFFFF;align=left;" vertex="1" parent="1"><mxGeometry x="40" y="20" width="1200" height="50" as="geometry"/></mxCell>
+        <mxCell id="q" value="User message" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1E293B;strokeColor=#9FB3C8;fontColor=#FFFFFF;fontSize=16;" vertex="1" parent="1"><mxGeometry x="40" y="300" width="130" height="60" as="geometry"/></mxCell>
+        <mxCell id="ig" value="Ingress guard&lt;br&gt;injection, PII" style="rhombus;whiteSpace=wrap;html=1;fillColor=#3B1D1D;strokeColor=#F87171;fontColor=#FFFFFF;fontSize=13;" vertex="1" parent="1"><mxGeometry x="200" y="280" width="130" height="100" as="geometry"/></mxCell>
+        <mxCell id="rt" value="route()&lt;br&gt;app/main.py" style="rhombus;whiteSpace=wrap;html=1;fillColor=#1E293B;strokeColor=#9FB3C8;fontColor=#FFFFFF;fontSize=13;" vertex="1" parent="1"><mxGeometry x="360" y="280" width="120" height="100" as="geometry"/></mxCell>
+        <mxCell id="ch" value="chat_agent&lt;br&gt;tool: current_brent_range&lt;br&gt;reads latest briefing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#13233A;strokeColor=#818CF8;fontColor=#FFFFFF;fontSize=14;" vertex="1" parent="1"><mxGeometry x="520" y="560" width="230" height="80" as="geometry"/></mxCell>
+        <mxCell id="n" value="news_agent&lt;br&gt;google_search" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#13233A;strokeColor=#38BDF8;fontColor=#FFFFFF;fontSize=14;" vertex="1" parent="1"><mxGeometry x="540" y="110" width="170" height="60" as="geometry"/></mxCell>
+        <mxCell id="s" value="sentiment_agent&lt;br&gt;google_search" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#13233A;strokeColor=#38BDF8;fontColor=#FFFFFF;fontSize=14;" vertex="1" parent="1"><mxGeometry x="540" y="200" width="170" height="60" as="geometry"/></mxCell>
+        <mxCell id="d" value="data_agent&lt;br&gt;google_search" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#13233A;strokeColor=#38BDF8;fontColor=#FFFFFF;fontSize=14;" vertex="1" parent="1"><mxGeometry x="540" y="290" width="170" height="60" as="geometry"/></mxCell>
+        <mxCell id="pl" value="ParallelAgent: collect" style="text;html=1;fontSize=13;fontColor=#38BDF8;" vertex="1" parent="1"><mxGeometry x="540" y="80" width="170" height="24" as="geometry"/></mxCell>
+        <mxCell id="rg" value="Research guard&lt;br&gt;untrusted web text" style="rhombus;whiteSpace=wrap;html=1;fillColor=#3B1D1D;strokeColor=#F87171;fontColor=#FFFFFF;fontSize=12;" vertex="1" parent="1"><mxGeometry x="740" y="200" width="130" height="100" as="geometry"/></mxCell>
+        <mxCell id="p" value="predictor_agent&lt;br&gt;current_brent_range&lt;br&gt;predict_48h" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#13233A;strokeColor=#34D399;fontColor=#FFFFFF;fontSize=14;" vertex="1" parent="1"><mxGeometry x="900" y="200" width="170" height="100" as="geometry"/></mxCell>
+        <mxCell id="c2" value="critic_agent&lt;br&gt;no tools" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#13233A;strokeColor=#FBBF24;fontColor=#FFFFFF;fontSize=14;" vertex="1" parent="1"><mxGeometry x="1090" y="200" width="150" height="100" as="geometry"/></mxCell>
+        <mxCell id="eg" value="Egress guard + answer checks" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3B1D1D;strokeColor=#F87171;fontColor=#FFFFFF;fontSize=14;" vertex="1" parent="1"><mxGeometry x="1000" y="400" width="240" height="60" as="geometry"/></mxCell>
+        <mxCell id="ans" value="Answer to the browser" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1E293B;strokeColor=#9FB3C8;fontColor=#FFFFFF;fontSize=16;" vertex="1" parent="1"><mxGeometry x="1000" y="560" width="240" height="60" as="geometry"/></mxCell>
+        <mxCell id="note" value="Agents do not message each other. Each saves its reply to shared ADK session state (output_key: news, sentiment, market, forecast, briefing) and the next agent's prompt reads it.&lt;br&gt;No A2A, no MCP, no RAG, no embeddings." style="text;html=1;whiteSpace=wrap;fontSize=15;fontColor=#9FB3C8;align=left;" vertex="1" parent="1"><mxGeometry x="40" y="440" width="440" height="130" as="geometry"/></mxCell>
+        <mxCell id="e1" style="endArrow=classic;strokeColor=#9FB3C8;strokeWidth=2;" edge="1" parent="1" source="q" target="ig"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e2" style="endArrow=classic;strokeColor=#9FB3C8;strokeWidth=2;" edge="1" parent="1" source="ig" target="rt"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e3" value="predict, brief, research" style="endArrow=classic;strokeColor=#38BDF8;strokeWidth=2;fontColor=#38BDF8;" edge="1" parent="1" source="rt" target="n"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e4" style="endArrow=classic;strokeColor=#38BDF8;strokeWidth=2;" edge="1" parent="1" source="rt" target="s"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e5" style="endArrow=classic;strokeColor=#38BDF8;strokeWidth=2;" edge="1" parent="1" source="rt" target="d"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e6" value="greeting, follow-up" style="endArrow=classic;strokeColor=#818CF8;strokeWidth=2;fontColor=#818CF8;" edge="1" parent="1" source="rt" target="ch"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e7" style="endArrow=classic;strokeColor=#9FB3C8;strokeWidth=2;" edge="1" parent="1" source="n" target="rg"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e8" style="endArrow=classic;strokeColor=#9FB3C8;strokeWidth=2;" edge="1" parent="1" source="s" target="rg"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e9" style="endArrow=classic;strokeColor=#9FB3C8;strokeWidth=2;" edge="1" parent="1" source="d" target="rg"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e10" style="endArrow=classic;strokeColor=#9FB3C8;strokeWidth=2;" edge="1" parent="1" source="rg" target="p"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e11" style="endArrow=classic;strokeColor=#9FB3C8;strokeWidth=2;" edge="1" parent="1" source="p" target="c2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e12" style="endArrow=classic;strokeColor=#9FB3C8;strokeWidth=2;" edge="1" parent="1" source="c2" target="eg"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e13" style="endArrow=classic;strokeColor=#9FB3C8;strokeWidth=2;" edge="1" parent="1" source="eg" target="ans"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e14" style="endArrow=classic;strokeColor=#818CF8;strokeWidth=2;" edge="1" parent="1" source="ch" target="ans"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="s3" name="3 - Google Cloud architecture">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" page="1" pageScale="1" pageWidth="1280" pageHeight="720" background="#0B1220">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="t" value="Google Cloud services used" style="text;html=1;fontSize=32;fontStyle=1;fontColor=#FFFFFF;align=left;" vertex="1" parent="1"><mxGeometry x="40" y="20" width="900" height="50" as="geometry"/></mxCell>
+        <mxCell id="u" value="Visitor browser" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1E293B;strokeColor=#9FB3C8;fontColor=#FFFFFF;fontSize=16;" vertex="1" parent="1"><mxGeometry x="40" y="300" width="150" height="70" as="geometry"/></mxCell>
+        <mxCell id="gh" value="GitHub Actions&lt;br&gt;CI, then deploy" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1E293B;strokeColor=#9FB3C8;fontColor=#FFFFFF;fontSize=16;" vertex="1" parent="1"><mxGeometry x="40" y="540" width="150" height="70" as="geometry"/></mxCell>
+        <mxCell id="proj" value="Google Cloud project: hormuz-pulse-agent" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#4285F4;fontColor=#8AB4F8;fontSize=14;verticalAlign=top;align=left;spacingLeft=10;dashed=1;" vertex="1" parent="1"><mxGeometry x="260" y="90" width="960" height="560" as="geometry"/></mxCell>
+        <mxCell id="cr" value="&lt;b&gt;Cloud Run&lt;/b&gt;&lt;br&gt;FastAPI app + ADK agents&lt;br&gt;scale to zero, max 3 instances&lt;br&gt;chat memory in instance RAM" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#13233A;strokeColor=#34A853;fontColor=#FFFFFF;fontSize=15;" vertex="1" parent="1"><mxGeometry x="300" y="290" width="240" height="90" as="geometry"/></mxCell>
+        <mxCell id="vx" value="&lt;b&gt;Vertex AI&lt;/b&gt;&lt;br&gt;Gemini models" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#13233A;strokeColor=#8E75B2;fontColor=#FFFFFF;fontSize=15;" vertex="1" parent="1"><mxGeometry x="680" y="140" width="230" height="80" as="geometry"/></mxCell>
+        <mxCell id="gs" value="&lt;b&gt;Grounding with Google Search&lt;/b&gt;&lt;br&gt;news, sentiment, prices" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#13233A;strokeColor=#4285F4;fontColor=#FFFFFF;fontSize=15;" vertex="1" parent="1"><mxGeometry x="960" y="140" width="230" height="80" as="geometry"/></mxCell>
+        <mxCell id="ma" value="&lt;b&gt;Model Armor&lt;/b&gt; (optional, off by default)&lt;br&gt;input and output screening" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#13233A;strokeColor=#F87171;fontColor=#FFFFFF;fontSize=14;dashed=1;" vertex="1" parent="1"><mxGeometry x="680" y="260" width="510" height="70" as="geometry"/></mxCell>
+        <mxCell id="lg" value="&lt;b&gt;Cloud Logging&lt;/b&gt;&lt;br&gt;request and error logs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#13233A;strokeColor=#FBBF24;fontColor=#FFFFFF;fontSize=15;" vertex="1" parent="1"><mxGeometry x="680" y="370" width="230" height="70" as="geometry"/></mxCell>
+        <mxCell id="iam" value="&lt;b&gt;IAM service accounts&lt;/b&gt;&lt;br&gt;runtime: aiplatform.user only" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#13233A;strokeColor=#FBBF24;fontColor=#FFFFFF;fontSize=15;" vertex="1" parent="1"><mxGeometry x="960" y="370" width="230" height="70" as="geometry"/></mxCell>
+        <mxCell id="wif" value="&lt;b&gt;Workload Identity Federation&lt;/b&gt;&lt;br&gt;keyless deploy, no stored keys" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#13233A;strokeColor=#FBBF24;fontColor=#FFFFFF;fontSize=14;" vertex="1" parent="1"><mxGeometry x="290" y="530" width="230" height="70" as="geometry"/></mxCell>
+        <mxCell id="cb" value="&lt;b&gt;Cloud Build&lt;/b&gt;&lt;br&gt;builds the Docker image" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#13233A;strokeColor=#34A853;fontColor=#FFFFFF;fontSize=14;" vertex="1" parent="1"><mxGeometry x="570" y="530" width="200" height="70" as="geometry"/></mxCell>
+        <mxCell id="ar" value="&lt;b&gt;Artifact Registry&lt;/b&gt;&lt;br&gt;stores the image" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#13233A;strokeColor=#34A853;fontColor=#FFFFFF;fontSize=14;" vertex="1" parent="1"><mxGeometry x="820" y="530" width="200" height="70" as="geometry"/></mxCell>
+        <mxCell id="pub" value="Public data, outside Google Cloud:&lt;br&gt;FRED (Brent, OVX) and a public Brent futures feed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1E293B;strokeColor=#9FB3C8;fontColor=#FFFFFF;fontSize=14;" vertex="1" parent="1"><mxGeometry x="300" y="170" width="290" height="70" as="geometry"/></mxCell>
+        <mxCell id="e1" value="HTTPS" style="endArrow=classic;strokeColor=#9FB3C8;strokeWidth=2;fontColor=#9FB3C8;" edge="1" parent="1" source="u" target="cr"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e2" style="endArrow=classic;strokeColor=#8E75B2;strokeWidth=2;" edge="1" parent="1" source="cr" target="vx"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e3" style="endArrow=classic;strokeColor=#4285F4;strokeWidth=2;" edge="1" parent="1" source="vx" target="gs"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e4" style="endArrow=classic;strokeColor=#F87171;strokeWidth=2;dashed=1;" edge="1" parent="1" source="cr" target="ma"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e5" style="endArrow=classic;strokeColor=#FBBF24;strokeWidth=2;" edge="1" parent="1" source="cr" target="lg"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e6" style="endArrow=classic;strokeColor=#9FB3C8;strokeWidth=2;" edge="1" parent="1" source="pub" target="cr"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e7" style="endArrow=classic;strokeColor=#9FB3C8;strokeWidth=2;" edge="1" parent="1" source="gh" target="wif"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e8" style="endArrow=classic;strokeColor=#9FB3C8;strokeWidth=2;" edge="1" parent="1" source="wif" target="cb"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e9" style="endArrow=classic;strokeColor=#9FB3C8;strokeWidth=2;" edge="1" parent="1" source="cb" target="ar"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e10" value="new revision" style="endArrow=classic;strokeColor=#34A853;strokeWidth=2;fontColor=#34A853;" edge="1" parent="1" source="ar" target="cr"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="920" y="480"/><mxPoint x="420" y="480"/></Array></mxGeometry></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
