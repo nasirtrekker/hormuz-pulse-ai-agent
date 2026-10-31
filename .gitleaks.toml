@@ -1,0 +1,13 @@
+title = "hormuz-pulse gitleaks config"
+
+[extend]
+useDefault = true
+
+# The attack corpus and guardrail tests contain deliberately fake key-shaped strings.
+[allowlist]
+description = "fake key-shaped test fixtures"
+paths = [
+  '''hormuz/data/attack_corpus\.json''',
+  '''tests/test_guardrails\.py''',
+  '''tests/data/attack_corpus\.json''',
+]

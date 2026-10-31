@@ -5,7 +5,7 @@ import unittest
 
 from hormuz import guardrails
 
-CORPUS = json.loads((pathlib.Path(__file__).parent / "data" / "attack_corpus.json").read_text())
+CORPUS = json.loads((pathlib.Path(__file__).parent.parent / "hormuz" / "data" / "attack_corpus.json").read_text())
 
 
 class AttackCorpusTests(unittest.TestCase):

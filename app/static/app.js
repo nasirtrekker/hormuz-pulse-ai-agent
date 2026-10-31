@@ -110,6 +110,7 @@ async function init() {
     $("stats").className = "err";
   }
   loadEvidence();
+  loadQuality();
   try {
     const b = await getJSON("/api/backtest");
     const rows = [
@@ -149,6 +150,24 @@ async function init() {
     }));
   } catch (err) {
     $("bt").textContent = "Backtest unavailable: " + err.message;
+  }
+}
+
+async function loadQuality() {
+  try {
+    const q = await getJSON("/api/quality");
+    const tiles = q.checks.map((c) => {
+      const d = document.createElement("div"); d.className = "kpi";
+      const a = document.createElement("div"); a.className = "big"; a.textContent = `${c.passed}/${c.total}`;
+      a.style.color = c.passed === c.total ? "var(--up)" : "var(--down)";
+      const l = document.createElement("div"); l.className = "lbl"; l.textContent = c.check;
+      const bar = document.createElement("div"); bar.className = "bar";
+      const i = document.createElement("i"); i.style.width = (100 * c.passed / c.total) + "%"; bar.append(i);
+      d.append(a, l, bar); return d;
+    });
+    $("safety").replaceChildren(...tiles);
+  } catch (err) {
+    $("safety").textContent = "Safety checks unavailable: " + err.message;
   }
 }
 

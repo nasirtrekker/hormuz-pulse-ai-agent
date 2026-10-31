@@ -30,6 +30,11 @@ class ApiTests(unittest.TestCase):
         self.assertLess(f["median"], f["high"])
         self.assertEqual(f["last_price"], 100.0)
 
+    def test_quality_report_all_pass(self):
+        body = self.client.get("/api/quality").json()
+        self.assertEqual(body["passed"], body["total"])
+        self.assertGreater(body["total"], 8)
+
     def test_evidence_is_published(self):
         body = self.client.get("/api/evidence").json()
         self.assertGreater(len(body["models"]), 3)

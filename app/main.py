@@ -5,6 +5,7 @@
   GET  /api/history     Brent daily history (FRED), refreshed from FRED at most every 12 hours
   GET  /api/forecast    data-driven 48-hour range (optionally anchored on a price you supply)
   GET  /api/backtest    walk-forward backtest of that range, computed from the same data
+  GET  /api/quality     guardrail self-evaluation on the attack corpus
   GET  /api/evidence    published results of the news / implied-volatility feature experiment
   POST /api/brief       runs the Gemini research agents and returns the written briefing
 """
@@ -24,7 +25,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from hormuz import backtest, guardrails, market_data, stat_model
+from hormuz import backtest, guardrails, market_data, quality, stat_model
 
 logger = logging.getLogger("hormuz.app")
 STATIC = Path(__file__).parent / "static"
@@ -168,6 +169,12 @@ def get_backtest() -> dict:
         if data.backtest is None:
             data.backtest = backtest.run(data.dates, data.prices, data.implied, start_year=2015)
         return data.backtest
+
+
+@app.get("/api/quality")
+def quality_report() -> dict:
+    """Live self-check of the guardrails against the bundled attack corpus."""
+    return quality.guardrail_report()
 
 
 @app.get("/api/evidence")

@@ -1,5 +1,7 @@
 # Hormuz Pulse
 
+[![CI](https://github.com/nasirtrekker/hormuz-pulse-ai-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/nasirtrekker/hormuz-pulse-ai-agent/actions/workflows/ci.yml)
+
 A web app for forecasters, investors and the public. Open the link and you see
 real Brent crude history, a data-driven 48-hour price range with its backtested
 reliability, and a button that runs a team of Gemini research agents (Google ADK)
@@ -76,6 +78,26 @@ API: `GET /api/history`, `GET /api/forecast?price=`, `GET /api/backtest`,
 `GET /api/evidence`, `POST /api/brief`, `GET /healthz`. Public use is protected by
 per-IP and daily briefing limits (`BRIEFS_PER_IP_PER_HOUR`, `BRIEFS_PER_DAY`, per
 instance), the guardrails, a 300 s timeout and at most 3 instances.
+
+## CI: what runs when you push
+
+Open the **Actions** tab of the repository. The `CI` workflow (`.github/workflows/ci.yml`)
+runs on every push to `main` and every pull request, on GitHub's servers, with no
+cloud credentials and no model calls:
+
+| Job and step | What it checks |
+|---|---|
+| test: unit tests | 49 tests: range model, backtest, API, guardrails, agent wiring |
+| test: attack corpus | known prompt-injection and secret-leak strings stay blocked or redacted (`hormuz/data/attack_corpus.json`) |
+| test: `adk eval` | ADK evaluation of the guardrail case in `evals/guardrails.evalset.json` |
+| test: build inputs, script syntax | Dockerfile and requirements exist, shell scripts parse |
+| secrets: gitleaks | no credentials in the repository history (`.gitleaks.toml` allows only the deliberately fake test keys) |
+
+The badge at the top shows the real status of the latest run. A red run means a
+step failed: open it in the Actions tab to see which one. Deploys are separate
+(`deploy.yml`, manual, after CI). Evaluation metrics are on the dashboard: the
+backtest and model comparison under "How reliable is this range?", and the live
+guardrail results under "Safety checks".
 
 ## Quick start
 
@@ -228,7 +250,7 @@ labelled fixed formula, not an ML model. Gemini only researches and critiques.
 
 | Stage | Trigger | What runs |
 |---|---|---|
-| CI | every pull request and push to `main` | unit tests, attack-corpus regression (`tests/data/attack_corpus.json`), `adk eval` on `evals/guardrails.evalset.json`, secret scan (gitleaks), script syntax checks. No cloud credentials, no model calls. |
+| CI | every pull request and push to `main` | unit tests, attack-corpus regression (`hormuz/data/attack_corpus.json`), `adk eval` on `evals/guardrails.evalset.json`, secret scan (gitleaks), script syntax checks. No cloud credentials, no model calls. |
 | CD | CI passes on `main`, or manual run | keyless Workload Identity Federation, then `deploy.sh` with `SKIP_BOOTSTRAP=true`, then a check that the new revision is ready. Uses the `production` GitHub environment, so you can require manual approval there. |
 | Dependencies | weekly | Dependabot for pip and GitHub Actions. |
 
@@ -248,7 +270,7 @@ Then add the printed values as GitHub repository variables (no secrets are
 needed) and, optionally, add required reviewers to the `production` environment.
 
 Guardrail changes must keep the attack corpus green: add every new attack string
-to `tests/data/attack_corpus.json` so it can never regress. Live-model
+to `hormuz/data/attack_corpus.json` so it can never regress. Live-model
 evaluation (`adk eval` with real forecasts) calls Vertex AI and costs money, so
 it is deliberately not part of CI.
 
