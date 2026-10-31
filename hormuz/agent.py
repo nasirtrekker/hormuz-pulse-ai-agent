@@ -154,8 +154,11 @@ critic_agent = Agent(
     after_model_callback=guardrails.egress_guard(require_disclaimer=True),
     instruction=(
         "Forecast:\n{forecast}\n\nNews:\n{news}\nSentiment:\n{sentiment}\nMarket:\n{market}\n\n"
-        "Write the final briefing:\n"
-        "1. **48h scenario** — direction, Brent price, illustrative range\n"
+        "Write the final briefing. NUMBER RULES: the 48h range and every price in it must be copied "
+        "exactly from the historical_range_48h result in the Forecast (low, median, high); never "
+        "compute, round differently or invent a price or range. Stress-case prices must come from "
+        "the predict_48h overlays and be labelled 'overlay'. Cite only facts present in the inputs.\n"
+        "1. **48h scenario** — direction, then the statistical range low-high copied exactly\n"
         "2. Table: base case vs. Hormuz stress case\n"
         "3. **Why** — top 3 drivers with sources\n"
         "4. **Watch next 48h** — 3 signals that would flip the call\n"

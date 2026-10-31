@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 
-from . import guardrails
+from . import guardrails, telemetry
 
 CORPUS = Path(__file__).parent / "data" / "attack_corpus.json"
 
@@ -20,9 +20,10 @@ def guardrail_report() -> dict:
             corpus["secrets"], lambda t: "[REDACTED]" in guardrails.redact_secrets(t)),
     }
     rows = []
-    for name, (cases, ok) in checks.items():
-        passed = sum(1 for c in cases if ok(c))
-        rows.append({"check": name, "passed": passed, "total": len(cases)})
+    with telemetry.muted():
+        for name, (cases, ok) in checks.items():
+            passed = sum(1 for c in cases if ok(c))
+            rows.append({"check": name, "passed": passed, "total": len(cases)})
     return {
         "checks": rows,
         "passed": sum(r["passed"] for r in rows),

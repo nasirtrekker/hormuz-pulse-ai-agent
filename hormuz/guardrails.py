@@ -12,7 +12,7 @@ from typing import Any, Optional
 
 from google.genai import types
 
-from . import model_armor
+from . import model_armor, telemetry
 
 MAX_INPUT_CHARS = 1000
 MAX_FIELD_CHARS = 6000
@@ -27,6 +27,8 @@ _INJECTION = re.compile(
     r"|you\s+are\s+now\s+",
     re.IGNORECASE,
 )
+# Personal data: emails and 13-19 digit card-like numbers must not be sent to a model.
+_PII = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+|\b(?:\d[ -]?){13,19}\b")
 _SECRETS = re.compile(
     r"AIza[0-9A-Za-z_\-]{35}"
     r"|ya29\.[0-9A-Za-z_\-]{20,}"
@@ -45,7 +47,11 @@ def check_input(text: str) -> Optional[str]:
     if _CONTROL_CHARS.search(text):
         return "the request contains control characters"
     if _INJECTION.search(text):
+        telemetry.count("prompt_injection_blocked")
         return "the request looks like an attempt to override the agent's instructions"
+    if _PII.search(text):
+        telemetry.count("personal_data_blocked")
+        return "the request contains personal data such as an email address or card number; please remove it"
     return None
 
 
@@ -68,7 +74,10 @@ def ingress_guard(callback_context: Any) -> Optional[types.Content]:
 
 
 def redact_secrets(text: str) -> str:
-    return _SECRETS.sub("[REDACTED]", text)
+    cleaned, n = _SECRETS.subn("[REDACTED]", text)
+    if n:
+        telemetry.count("secret_redacted")
+    return cleaned
 
 
 def _field_problems(key: str, text: str) -> list[str]:
@@ -100,10 +109,13 @@ def sanitize_research(key: str, value: Any) -> str:
     if not isinstance(value, str) or not value.strip():
         return "VALIDATION FAILED: no data was returned."
     text = _CONTROL_CHARS.sub("", value)[:MAX_FIELD_CHARS]
-    text = _INJECTION.sub("[removed]", text)
+    text, removed = _INJECTION.subn("[removed]", text)
+    if removed:
+        telemetry.count("research_injection_removed")
     text = redact_secrets(text)
     problems = _field_problems(key, text)
     if problems:
+        telemetry.count("research_validation_failed")
         text += "\nVALIDATION FAILED: " + "; ".join(problems) + "."
     return text
 
@@ -133,6 +145,13 @@ def _numbers_ok(value: Any) -> bool:
 
 def tool_output_guard(tool: Any, args: dict, tool_context: Any, tool_response: Any) -> Optional[dict]:
     """after_tool_callback: reject malformed or implausible tool results."""
+    reject = _tool_output_problem(tool, args, tool_response)
+    if reject:
+        telemetry.count("tool_output_rejected")
+    return reject
+
+
+def _tool_output_problem(tool: Any, args: dict, tool_response: Any) -> Optional[dict]:
     if not isinstance(tool_response, dict):
         return {"error": f"{tool.name} returned an unexpected result type."}
     if not _numbers_ok(tool_response):

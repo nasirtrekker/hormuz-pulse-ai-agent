@@ -4,102 +4,26 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hormuz Pulse: Brent 48-hour outlook</title>
-<style>
-  :root { --bg:#070b12; --card:rgba(22,30,43,.72); --line:rgba(120,150,190,.18); --text:#eaf1f8; --mute:#93a3b8; --acc:#38bdf8; --acc2:#818cf8; --up:#34d399; --down:#fb7185; }
-  * { box-sizing: border-box; }
-  body { margin:0; font:16px/1.55 Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif; color:var(--text);
-    background: radial-gradient(900px 500px at 15% -10%, rgba(56,189,248,.16), transparent 60%), radial-gradient(800px 500px at 100% 0%, rgba(129,140,248,.16), transparent 55%), var(--bg); min-height:100vh; }
-  main { max-width:1000px; margin:0 auto; padding:28px 18px 56px; }
-  .hero { padding:18px 0 22px; }
-  .badge { display:inline-flex; gap:8px; align-items:center; font-size:.78rem; color:var(--acc); border:1px solid var(--line); border-radius:999px; padding:4px 12px; background:rgba(56,189,248,.08); }
-  .badge i { width:8px; height:8px; border-radius:50%; background:var(--up); box-shadow:0 0 0 4px rgba(52,211,153,.18); }
-  h1 { font-size:clamp(2rem,5vw,3rem); line-height:1.1; margin:14px 0 10px; letter-spacing:-.02em; background:linear-gradient(90deg,#fff,#9fd8ff 60%,#b3b9ff); -webkit-background-clip:text; background-clip:text; color:transparent; }
-  h2 { font-size:1.05rem; margin:0 0 12px; letter-spacing:.01em; }
-  .sub { color:var(--mute); margin:0; max-width:680px; font-size:1.05rem; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px; margin-bottom:18px; backdrop-filter:blur(8px); box-shadow:0 8px 30px rgba(0,0,0,.25); }
-  .ask { border-color:rgba(56,189,248,.35); box-shadow:0 8px 40px rgba(56,189,248,.10); }
-  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; }
-  .stat { background:rgba(255,255,255,.03); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
-  .stat .v { font-size:1.7rem; font-weight:700; letter-spacing:-.01em; } .stat .k { color:var(--mute); font-size:.82rem; margin-top:2px; }
-  .stat.low .v { color:var(--down); } .stat.high .v { color:var(--up); } .stat.mid .v { color:var(--acc); }
-  canvas { width:100%; height:320px; display:block; }
-  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-  input, button { font:inherit; border-radius:10px; border:1px solid var(--line); padding:11px 14px; background:rgba(7,11,18,.7); color:var(--text); }
-  input:focus { outline:2px solid var(--acc); outline-offset:1px; }
-  input { flex:1; min-width:220px; }
-  button { background:linear-gradient(90deg,var(--acc),var(--acc2)); color:#05101c; border:0; font-weight:700; cursor:pointer; transition:transform .08s, filter .15s; }
-  button:hover { filter:brightness(1.1); } button:active { transform:scale(.98); }
-  button:disabled { opacity:.55; cursor:progress; }
-  .chips { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0 0; }
-  .chip { background:rgba(255,255,255,.05); color:var(--text); border:1px solid var(--line); font-weight:500; padding:6px 12px; border-radius:999px; font-size:.85rem; }
-  .scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
-  table { width:100%; border-collapse:collapse; min-width:420px; font-variant-numeric:tabular-nums; }
-  td,th { text-align:left; padding:10px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
-  td:first-child, th:first-child { width:58%; }
-  td:not(:first-child), th:not(:first-child) { text-align:right; white-space:nowrap; }
-  td:not(:first-child) { font-weight:600; }
-  tbody tr:hover, #bt tr:hover, #ev tr:hover { background:rgba(255,255,255,.03); }
-  th { color:var(--mute); font-weight:500; font-size:.85rem; } tr:last-child td { border-bottom:0; }
-  .answer { white-space:pre-wrap; word-wrap:break-word; margin:16px 0 0; padding:16px; border-radius:12px; background:rgba(255,255,255,.03); border:1px solid var(--line); display:none; }
-  .answer.show { display:block; }
-  .spin { display:inline-block; width:14px; height:14px; border:2px solid var(--line); border-top-color:var(--acc); border-radius:50%; animation:r .8s linear infinite; vertical-align:-2px; margin-right:8px; }
-  @keyframes r { to { transform:rotate(360deg); } }
-  .note { color:var(--mute); font-size:.85rem; } .err { color:var(--down); }
-  .nav { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
-  .brand { font-weight:700; letter-spacing:.02em; display:flex; align-items:center; gap:10px; }
-  .logo { width:28px; height:28px; border-radius:8px; background:linear-gradient(135deg,var(--acc),var(--acc2)); display:grid; place-items:center; color:#05101c; font-size:.9rem; }
-  .gh { display:inline-flex; align-items:center; gap:8px; color:var(--text); text-decoration:none; border:1px solid var(--line); border-radius:999px; padding:6px 14px; background:rgba(255,255,255,.04); font-size:.88rem; transition:border-color .15s, background .15s; }
-  .gh:hover { border-color:var(--acc); background:rgba(56,189,248,.1); }
-  .steps { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; }
-  .step { padding:16px; border-radius:12px; border:1px solid var(--line); background:rgba(255,255,255,.03); }
-  .step b { display:block; margin-bottom:4px; } .step span { color:var(--mute); font-size:.9rem; }
-  .step em { font-style:normal; display:inline-grid; place-items:center; width:26px; height:26px; border-radius:50%; margin-bottom:8px; background:linear-gradient(135deg,var(--acc),var(--acc2)); color:#05101c; font-weight:700; }
-  .contact { display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
-  .avatar { width:56px; height:56px; border-radius:50%; background:linear-gradient(135deg,var(--acc),var(--acc2)); display:grid; place-items:center; font-weight:800; color:#05101c; font-size:1.3rem; }
-  .contact h2 { margin:0; } .contact p { margin:2px 0 0; color:var(--mute); }
-  .card, .step { animation:up .5s ease both; } @keyframes up { from { opacity:0; transform:translateY(8px); } }
-  .hero-card { display:grid; grid-template-columns:minmax(220px,1fr) 2fr; gap:24px; align-items:center; }
-  @media (max-width:720px) { .hero-card { grid-template-columns:1fr; } }
-  .price-big { font-size:clamp(2.6rem,7vw,3.8rem); font-weight:800; letter-spacing:-.03em; line-height:1; }
-  .price-meta { color:var(--mute); font-size:.85rem; margin-top:8px; }
-  .pill { display:inline-block; margin-top:12px; padding:4px 12px; border-radius:999px; font-size:.8rem; border:1px solid var(--line); background:rgba(255,255,255,.04); }
-  .gauge-title { display:flex; justify-content:space-between; color:var(--mute); font-size:.85rem; margin-bottom:34px; }
-  .gauge { position:relative; height:14px; border-radius:999px; background:linear-gradient(90deg,var(--down),#fbbf24 50%,var(--up)); opacity:.9; }
-  .mark { position:absolute; top:-6px; width:3px; height:26px; background:#fff; border-radius:2px; transform:translateX(-50%); box-shadow:0 0 12px rgba(255,255,255,.7); }
-  .mark b { position:absolute; bottom:32px; left:50%; transform:translateX(-50%); white-space:nowrap; font-size:.75rem; font-weight:600; color:#fff; background:rgba(7,11,18,.85); border:1px solid var(--line); padding:2px 8px; border-radius:6px; }
-  .mark.last b { bottom:-34px; color:var(--acc); }
-  .ends { display:flex; justify-content:space-between; margin-top:44px; font-size:1.15rem; font-weight:700; }
-  .ends span:first-child { color:var(--down); } .ends span:last-child { color:var(--up); }
-  .ends small { display:block; color:var(--mute); font-weight:400; font-size:.75rem; }
-  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; margin-bottom:14px; }
-  .kpi { padding:16px; border-radius:14px; border:1px solid var(--line); background:rgba(255,255,255,.03); }
-  .kpi .big { font-size:1.9rem; font-weight:800; letter-spacing:-.02em; } .kpi .lbl { color:var(--mute); font-size:.82rem; }
-  .bar { height:8px; border-radius:99px; background:rgba(255,255,255,.08); margin-top:10px; overflow:hidden; position:relative; }
-  .bar i { display:block; height:100%; border-radius:99px; background:linear-gradient(90deg,var(--acc),var(--acc2)); }
-  .bar u { position:absolute; top:0; bottom:0; width:2px; background:#fff; }
-  .verdict { border-radius:12px; padding:14px 16px; margin:14px 0 0; background:rgba(251,191,36,.08); border:1px solid rgba(251,191,36,.3); font-size:.92rem; }
-  .verdict.good { background:rgba(52,211,153,.08); border-color:rgba(52,211,153,.3); }
-  details { margin-top:14px; } summary { cursor:pointer; color:var(--acc); font-size:.9rem; }
-  footer { color:var(--mute); font-size:.8rem; margin-top:26px; }
-  a { color:var(--acc); }
-</style>
+<link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 <main>
   <nav class="nav">
-    <div class="brand"><span class="logo">H</span> Hormuz Pulse</div>
-    <a class="gh" href="https://github.com/nasirtrekker/hormuz-pulse-ai-agent" target="_blank" rel="noopener">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.08-2.7-1.08-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.71 1.22 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.65-.89-3.65-3.96 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.08-1.87 3.76-3.65 3.96.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
-      View source on GitHub</a>
+    <div class="brand"><span class="logo">🛢️</span> Hormuz Pulse</div>
+    <div>
+      <a class="link" href="/">🏠 Dashboard</a>
+      <a class="link" href="/ops">📈 Agent ops</a>
+      <a class="gh" href="https://github.com/nasirtrekker/hormuz-pulse-ai-agent" target="_blank" rel="noopener"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.08-2.7-1.08-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.71 1.22 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.65-.89-3.65-3.96 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.08-1.87 3.76-3.65 3.96.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg> Source</a>
+    </div>
   </nav>
   <header class="hero">
-    <span class="badge"><i></i> Public data, backtested, no made-up numbers</span>
+    <span class="badge"><i></i> Public data · backtested · no made-up numbers</span>
     <h1>Hormuz Pulse</h1>
-    <p class="sub">Where could Brent crude be in 48 hours? A range built from 39 years of public prices and the oil options market, plus an AI research team that reads the latest news on the Strait of Hormuz.</p>
+    <p class="sub">🛢️ Where could Brent crude be in 48 hours? A range built from 39 years of public prices and the oil options market, plus 🤖 an AI research team that reads the latest Strait of Hormuz news.</p>
   </header>
 
   <section class="card ask">
-    <h2>Ask the research team</h2>
+    <h2><span class="emoji">💬</span>Ask the research team</h2>
     <div class="row">
       <input id="question" maxlength="1000" value="Predict Brent for the next 48 hours." aria-label="Your question">
       <button id="brief">Ask</button>
@@ -109,69 +33,48 @@
       <button class="chip" type="button">How risky is the Strait of Hormuz right now?</button>
       <button class="chip" type="button">Predict Brent for the next 48 hours.</button>
     </div>
-    <p class="note">Gemini searches current news, sentiment and the latest price, then a critic checks the answer. Takes 1 to 3 minutes. A few questions per hour per visitor.</p>
+    <p class="note">Takes 1 to 3 minutes. Please do not include personal data: it is blocked before reaching the model.</p>
     <div class="answer" id="briefing" aria-live="polite"></div>
+    <div class="checks" id="answerchecks"></div>
   </section>
 
   <section class="card hero-card" id="stats"><div class="note">Loading Brent data…</div></section>
 
   <section class="card">
-    <h2>Brent price and 48-hour range</h2>
+    <h2><span class="emoji">📉</span>Brent price and 48-hour range</h2>
     <canvas id="chart" role="img" aria-label="Brent price history with forecast range"></canvas>
     <p class="note" id="chartnote"></p>
-  </section>
-
-  <section class="card">
-    <h2>Try your own starting price</h2>
     <div class="row">
-      <input id="price" type="number" min="10" max="500" step="0.01" placeholder="Brent price in USD (optional)" aria-label="Brent price in USD">
+      <input id="price" type="number" min="10" max="500" step="0.01" placeholder="Try your own Brent price in USD (optional)" aria-label="Brent price in USD">
       <button id="recalc">Recalculate range</button>
     </div>
-    <p class="note">The range is computed from history around the price you enter (10 to 500 USD).</p>
   </section>
 
   <section class="card">
-    <h2>How reliable is this range?</h2>
-    <div class="kpis" id="kpis"></div>
-    <details><summary>Show full backtest numbers</summary>
-      <div class="scroll"><table id="bt"><tr><td class="note">Running walk-forward backtest…</td></tr></table></div>
-    </details>
-    <div class="verdict" id="verdict1">Every past forecast used only data available at the time. The range is calibrated, but no point forecast beat "the price stays the same", so treat it as a risk range, not a prediction of direction.</div>
+    <h2><span class="emoji">🎯</span>How reliable is this range?</h2>
+    <div class="kpis" id="kpis"><div class="note">Running walk-forward backtest…</div></div>
+    <div class="verdict">Every past forecast used only data available at the time. The range is calibrated, but no point forecast beat "the price stays the same", so treat it as a risk range, not a prediction of direction. <a href="/ops">See all evaluation metrics</a>.</div>
   </section>
 
   <section class="card">
-    <h2>Does news predict the price? What we tested</h2>
-    <div class="verdict good" id="evnote">Loading experiment results…</div>
-    <details open><summary>Model comparison</summary>
-      <div class="scroll"><table id="ev"><tr><td class="note">Loading…</td></tr></table></div>
-    </details>
-  </section>
-
-  <section class="card">
-    <h2>Safety checks, run live</h2>
-    <p class="note">Each page load, the guardrails are tested against known attacks (prompt injection, hidden instructions, leaked keys). The same tests run on every code push in CI.</p>
-    <div class="kpis" id="safety"><div class="note">Running checks…</div></div>
-  </section>
-
-  <section class="card">
-    <h2>How it works</h2>
-    <div class="steps">
-      <div class="step"><em>1</em><b>Public data</b><span>39 years of Brent prices and the oil options market (FRED).</span></div>
-      <div class="step"><em>2</em><b>Backtested range</b><span>A 48-hour low, median and high, checked against past outcomes.</span></div>
-      <div class="step"><em>3</em><b>AI research team</b><span>Gemini agents read current news and sentiment, and a critic checks them.</span></div>
-      <div class="step"><em>4</em><b>Guardrails</b><span>Inputs, tool outputs and answers are screened before you see them.</span></div>
+    <h2><span class="emoji">🛡️</span>Built to be trusted</h2>
+    <div class="trust">
+      <div><b>🚫 Prompt-injection guard</b>Hidden or hostile instructions are blocked on the way in, and stripped from web research.</div>
+      <div><b>🔒 Privacy</b>Emails and card numbers are blocked. Questions and IP addresses are never stored.</div>
+      <div><b>🧮 No made-up numbers</b>Prices come from public data. Each answer is checked for whether it quotes the computed range.</div>
+      <div><b>🧪 Tested in public</b>Guardrails and the model are scored on <a href="/ops">the ops page</a> and in CI.</div>
     </div>
   </section>
 
   <section class="card contact">
     <div class="avatar">N</div>
     <div>
-      <h2>Built by Nasir Uddin</h2>
+      <h2>👋 Built by Nasir Uddin</h2>
       <p>GitHub: <a href="https://github.com/nasirtrekker" target="_blank" rel="noopener">@nasirtrekker</a> &middot; <a href="https://github.com/nasirtrekker/hormuz-pulse-ai-agent" target="_blank" rel="noopener">github.com/nasirtrekker/hormuz-pulse-ai-agent</a></p>
     </div>
   </section>
 
-  <footer>Educational only, not financial advice. Data: FRED (Brent spot DCOILBRENTEU, CBOE crude oil volatility OVXCLS, VIX, dollar index) and the Caldara-Iacoviello Geopolitical Risk Index (daily, from newspaper coverage). Briefings use Google Search and Gemini, and may contain errors: check the cited sources.</footer>
+  <footer>Educational only, not financial advice. Data: FRED (Brent spot, CBOE crude oil volatility OVX, VIX, dollar index) and the Caldara-Iacoviello Geopolitical Risk Index. Briefings use Google Search and Gemini and may contain errors: check the sources.</footer>
 </main>
 <script src="/static/app.js"></script>
 </body>

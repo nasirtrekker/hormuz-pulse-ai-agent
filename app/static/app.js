@@ -109,20 +109,8 @@ async function init() {
     $("stats").textContent = "Could not load data: " + err.message;
     $("stats").className = "err";
   }
-  loadEvidence();
-  loadQuality();
   try {
     const b = await getJSON("/api/backtest");
-    const rows = [
-      ["Forecasts tested", `${b.forecasts} (${b.from} to ${b.to})`],
-      ["80% range: share of outcomes inside (target 80%)", `${b.coverage_data_driven_pct}%`],
-      ["Range with options-implied volatility added: share inside", `${b.coverage_blend_pct}%`],
-      ["Range without it: share inside, average width", `${b.coverage_data_driven_pct}%, ${b.mean_interval_width_pct}%`],
-      ["Old fixed ±3.6% band: share inside", `${b.coverage_fixed_band_pct}%`],
-      ["Point error, 'price stays the same'", `${b.mape_no_change_pct}%`],
-      ["Point error, momentum rule", `${b.mape_momentum_pct}%`],
-      ["Average range width (this model)", `${b.mean_blend_width_pct}% of price`],
-    ];
     const kpi = (big, lbl, pct, target) => {
       const d = document.createElement("div"); d.className = "kpi";
       const a = document.createElement("div"); a.className = "big"; a.textContent = big;
@@ -142,56 +130,8 @@ async function init() {
       kpi(`${b.forecasts}`, `forecasts tested, ${b.from} to ${b.to}`),
       kpi(`${b.mape_no_change_pct}% vs ${b.mape_momentum_pct}%`, "point error: 'price stays the same' vs momentum. Neither wins."),
     );
-    $("bt").replaceChildren(...rows.map(([k, v]) => {
-      const tr = document.createElement("tr");
-      const a = document.createElement("td"); a.textContent = k;
-      const c = document.createElement("td"); c.textContent = v;
-      tr.append(a, c); return tr;
-    }));
   } catch (err) {
-    $("bt").textContent = "Backtest unavailable: " + err.message;
-  }
-}
-
-async function loadQuality() {
-  try {
-    const q = await getJSON("/api/quality");
-    const tiles = q.checks.map((c) => {
-      const d = document.createElement("div"); d.className = "kpi";
-      const a = document.createElement("div"); a.className = "big"; a.textContent = `${c.passed}/${c.total}`;
-      a.style.color = c.passed === c.total ? "var(--up)" : "var(--down)";
-      const l = document.createElement("div"); l.className = "lbl"; l.textContent = c.check;
-      const bar = document.createElement("div"); bar.className = "bar";
-      const i = document.createElement("i"); i.style.width = (100 * c.passed / c.total) + "%"; bar.append(i);
-      d.append(a, l, bar); return d;
-    });
-    $("safety").replaceChildren(...tiles);
-  } catch (err) {
-    $("safety").textContent = "Safety checks unavailable: " + err.message;
-  }
-}
-
-async function loadEvidence() {
-  try {
-    const e = await getJSON("/api/evidence");
-    const head = document.createElement("tr");
-    ["Model (scored on " + e.test_points + " unseen 2-day moves, " + e.period + ")", "Score vs current (lower is better)", "Inside 80% range"].forEach((t) => {
-      const th = document.createElement("th"); th.textContent = t; head.append(th);
-    });
-    const rows = e.models.map((m) => {
-      const tr = document.createElement("tr");
-      [m.name, `${m.vs_current_pct > 0 ? "+" : ""}${m.vs_current_pct}%`, `${m.coverage80_pct}%`].forEach((t) => {
-        const td = document.createElement("td"); td.textContent = t; tr.append(td);
-      });
-      return tr;
-    });
-    $("ev").replaceChildren(head, ...rows);
-    const g = e.news_tests.find((t) => t.feature === "gpr");
-    $("evnote").textContent = "Verdict: " +
-      `News (Geopolitical Risk Index) vs the next 2-day move: correlation ${g.rho_direction} for direction (p=${g.p_direction}) and ${g.rho_size} for size (p=${g.p_size}), i.e. no measurable predictive power. ` +
-      `No model beat "no change" on the point forecast (median error ${e.no_change_median_abs_error_pct}% for no change). Only options-implied volatility improved the range.`;
-  } catch (err) {
-    $("ev").textContent = "Evidence unavailable: " + err.message;
+    $("kpis").textContent = "Backtest unavailable: " + err.message;
   }
 }
 
@@ -203,7 +143,7 @@ $("recalc").addEventListener("click", async () => {
 
 $("brief").addEventListener("click", async () => {
   const button = $("brief"), out = $("briefing");
-  button.disabled = true; out.className = "answer show"; out.replaceChildren();
+  button.disabled = true; out.className = "answer show"; out.replaceChildren(); $("answerchecks").replaceChildren();
   const spin = document.createElement("span"); spin.className = "spin";
   out.append(spin, "Researching news, sentiment and prices… this takes 1 to 3 minutes.");
   try {
@@ -212,10 +152,25 @@ $("brief").addEventListener("click", async () => {
       body: JSON.stringify({ question: $("question").value }),
     });
     out.className = "answer show"; out.textContent = r.briefing;
+    showChecks(r);
   } catch (err) {
-    out.className = "answer show err"; out.textContent = err.message;
+    out.className = "answer show err"; out.textContent = err.message; $("answerchecks").replaceChildren();
   } finally { button.disabled = false; }
 });
+
+function showChecks(r) {
+  const box = $("answerchecks"); box.replaceChildren();
+  const add = (cls, text) => { const s = document.createElement("span"); s.className = "check " + cls; s.textContent = text; box.append(s); };
+  if (r.blocked) { add("bad", "🚫 Blocked by guardrails before any model ran"); return; }
+  const c = r.checks || {};
+  add("ok", "🛡️ Guardrails passed");
+  if (c.range_quoted === true) add("ok", "🧮 Quotes the computed range");
+  else if (c.range_quoted === false) add("bad", "⚠️ Does not quote the computed range: rely on the numbers above");
+  else add("na", "ℹ️ Range tool not used in this answer");
+  if (c.off_range_figures) add("bad", `⚠️ ${c.off_range_figures} price figure(s) far from the computed range: verify`);
+  add(c.disclaimer ? "ok" : "bad", c.disclaimer ? "📌 Disclaimer present" : "⚠️ Disclaimer missing");
+  if (r.trace_id) add("na", `🔎 trace ${r.trace_id}`);
+}
 
 document.querySelectorAll("#chips .chip").forEach((c) => c.addEventListener("click", () => { $("question").value = c.textContent; $("question").focus(); }));
 

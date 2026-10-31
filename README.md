@@ -1,31 +1,68 @@
-# Hormuz Pulse
+# 🛢️ Hormuz Pulse
 
 [![CI](https://github.com/nasirtrekker/hormuz-pulse-ai-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/nasirtrekker/hormuz-pulse-ai-agent/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)
+![Google ADK](https://img.shields.io/badge/Google-ADK-4285F4?logo=google&logoColor=white)
+![Gemini](https://img.shields.io/badge/Gemini-Vertex%20AI-8E75B2?logo=googlegemini&logoColor=white)
+![Cloud Run](https://img.shields.io/badge/Cloud%20Run-scale%20to%20zero-34A853?logo=googlecloud&logoColor=white)
+![Guardrails](https://img.shields.io/badge/guardrails-ingress%20%C2%B7%20tool%20%C2%B7%20egress-E34F26)
+![Data](https://img.shields.io/badge/data-public%20only-1F9D55)
 
 A web app for forecasters, investors and the public. Open the link and you see
 real Brent crude history, a data-driven 48-hour price range with its backtested
-reliability, and a button that runs a team of Gemini research agents (Google ADK)
+reliability, and a box that runs a team of Gemini research agents (Google ADK)
 for a live briefing on the Strait of Hormuz.
 
-**Live app: https://hormuz-pulse-2o4l63xkqq-nw.a.run.app**
+### 🌍 Live app: https://hormuz-pulse-2o4l63xkqq-nw.a.run.app
+
+Built by **Nasir Uddin** ([@nasirtrekker](https://github.com/nasirtrekker)).
+
+## 🖥️ The two pages
+
+### 1. Dashboard (`/`): simple, for everyone
 
 ![Dashboard](docs/dashboard.png)
 
-## What you see and how to use it
+### 2. Agent ops (`/ops`): a Grafana-style page for traces and evaluation
 
-| Dashboard section | What it does | Needs cloud? |
-|---|---|---|
-| Top numbers | Latest Brent close, 48-hour low (10th percentile), median, high (90th percentile), and the volatility used | no |
-| Chart | Last 260 trading days with the shaded 80% range two trading days ahead | no |
-| Try your own starting price | Type a price (10 to 500 USD) and click **Recalculate range**; the range is recomputed around it | no |
-| How reliable is this range? | Walk-forward backtest: how often real outcomes fell inside the range | no |
-| Does news predict the price? | Results of the model comparison, including the news index test | no |
-| Live research briefing | Click **Generate briefing**. Agents search current news and sentiment, a critic checks the result, and the answer is screened by guardrails. Takes 1 to 3 minutes | yes (Vertex AI) |
+![Agent ops](docs/ops.png)
+
+## 🧭 How to use it
+
+| Step | What to do | What you get | Cloud cost |
+|---|---|---|---|
+| 1️⃣ | Open the live link | Latest Brent close, 48-hour low, median and high | 🟢 none |
+| 2️⃣ | Type a price in "Try your own Brent price" and click **Recalculate range** | Range recomputed around your price | 🟢 none |
+| 3️⃣ | Read "How reliable is this range?" | Backtest: how often real outcomes fell inside the range | 🟢 none |
+| 4️⃣ | Type a question in **Ask the research team**, click **Ask** (1 to 3 minutes) | A briefing from the agents plus answer checks (guardrails passed, quotes the computed range, disclaimer) | 🟡 Vertex AI, only when clicked |
+| 5️⃣ | Open **Agent ops** | Live traces, latency, guardrail counts, evaluation scores | 🟢 none |
+
+Cloud charges happen only when someone clicks **Ask**. Cloud Run scales to zero
+when idle.
 
 Read the range as a risk band, not a price target: the backtest shows the band is
 calibrated but no method beat "the price stays the same" for direction.
 
-## How the app is built
+## 🏗️ How the app was built
+
+1. **Data.** Downloaded public series from FRED (Brent, OVX oil volatility, VIX,
+   dollar index) and the Caldara-Iacoviello Geopolitical Risk index. Nothing is
+   typed in by hand (`hormuz/market_data.py`).
+2. **Test what predicts.** `scripts/experiment.py` compared realised volatility,
+   options-implied volatility (OVX), gradient-boosted models and a news index on
+   1,503 unseen two-day moves. Only OVX helped the range; news and ML did not
+   beat "price stays the same" for direction.
+3. **Range model.** The winner is a blend of realised and implied volatility that
+   scales historical quantiles (`hormuz/stat_model.py`), checked by a walk-forward
+   backtest (`hormuz/backtest.py`).
+4. **Agent team.** Google ADK pipeline: three Gemini research agents in parallel,
+   a predictor that calls the range tool, and a critic (`hormuz/agent.py`).
+5. **Guardrails.** Deterministic code at input, tool output and answer
+   (`hormuz/guardrails.py`), optional Model Armor.
+6. **Observability.** Per-request traces and counters with no question text
+   (`hormuz/telemetry.py`) feed the `/ops` page.
+7. **Web app.** FastAPI serves the API and the two static pages (`app/`).
+8. **Ship.** Docker, Cloud Run, GitHub Actions CI, keyless deploy.
 
 ```mermaid
 flowchart LR
@@ -34,6 +71,7 @@ flowchart LR
         CR[Cloud Run: FastAPI app<br/>app/main.py]
         CR --> RM[Range model<br/>stat_model.py, backtest.py]
         CR --> AG[ADK agent team<br/>agent.py]
+        CR --> TM[Traces and counters<br/>telemetry.py]
         AG --> GR[Guardrails<br/>guardrails.py]
         GR -.optional.-> MA[Model Armor<br/>model_armor.py]
         AG --> VX[Vertex AI Gemini<br/>+ Google Search grounding]
@@ -43,13 +81,20 @@ flowchart LR
     GH[GitHub Actions] -->|keyless deploy, Workload Identity| CR
 ```
 
-Cloud resources are billed only when someone uses the app: Cloud Run scales to
-zero when idle, and Vertex AI is called only when a visitor clicks "Generate
-briefing". The dashboard itself uses no paid model calls.
+```mermaid
+flowchart LR
+    Q[Question] --> I{{Ingress guard}}
+    I -->|blocked| X[Refused and traced]
+    I --> P
+    subgraph P[collect: run in parallel]
+        N[news_agent] ~~~ S[sentiment_agent] ~~~ D[data_agent]
+    end
+    P --> R{{Research guard}} --> PR[predictor_agent<br/>historical_range_48h tool] --> T{{Tool guard}} --> C[critic_agent] --> E{{Egress guard}} --> A[Briefing + answer checks]
+```
 
 | Tool | Used for |
 |---|---|
-| FastAPI + uvicorn | web server, JSON API, static dashboard, rate limits, security headers |
+| FastAPI + uvicorn | web server, JSON API, static pages, rate limits, security headers |
 | Google ADK | agent team (parallel research, predictor, critic) |
 | Gemini on Vertex AI, Google Search grounding | news, sentiment and latest-price research |
 | Model Armor (optional) | managed prompt-injection, sensitive-data and responsible-AI filters |
@@ -58,46 +103,82 @@ briefing". The dashboard itself uses no paid model calls.
 | Docker, Cloud Run, Cloud Build | container build and hosting |
 | GitHub Actions, Workload Identity Federation | CI and keyless deploy |
 
-## What each file does
+## 🗂️ What each file does
 
 | File | Job |
 |---|---|
-| `app/main.py` | FastAPI service: endpoints, data refresh and backtest cache, rate limiting |
-| `app/static/index.html`, `app.js` | the dashboard (canvas chart and tables), no external libraries |
+| `app/main.py` | FastAPI service: endpoints, data refresh, backtest cache, rate limiting, traces |
+| `app/static/index.html`, `app.js`, `style.css` | the dashboard (canvas chart, ask box, answer checks), no external libraries |
+| `app/static/ops.html`, `ops.js` | the Grafana-style ops page: stat panels, latency bars, guardrail counts, trace Gantt, evaluation |
 | `hormuz/market_data.py` | loads and refreshes Brent and OVX series from FRED |
 | `hormuz/stat_model.py` | computes the 48-hour range from standardised historical returns |
 | `hormuz/backtest.py` | walk-forward test of that range |
 | `hormuz/agent.py` | ADK pipeline and the `historical_range_48h` tool |
-| `hormuz/guardrails.py`, `hormuz/model_armor.py` | ingress, tool-output and egress checks |
+| `hormuz/guardrails.py`, `hormuz/model_armor.py` | ingress, tool-output and egress checks, PII blocking |
+| `hormuz/telemetry.py` | in-memory traces and counters (metadata only) and the answer checks |
+| `hormuz/quality.py` | runs the guardrails against the attack corpus for the live report |
+| `hormuz/data/attack_corpus.json` | 14 attack and normal cases used by tests, CI and `/ops` |
 | `scripts/experiment.py` | compares models and writes `hormuz/data/experiment_results.json` |
-| `scripts/backtest.py` | prints the backtest as JSON |
 | `deploy.sh`, `Dockerfile`, `scripts/setup_cicd.sh`, `.github/workflows/` | deployment and CI/CD |
 | `tests/`, `evals/` | unit tests, attack-corpus regression, ADK eval |
 
-API: `GET /api/history`, `GET /api/forecast?price=`, `GET /api/backtest`,
-`GET /api/evidence`, `POST /api/brief`, `GET /healthz`. Public use is protected by
-per-IP and daily briefing limits (`BRIEFS_PER_IP_PER_HOUR`, `BRIEFS_PER_DAY`, per
-instance), the guardrails, a 300 s timeout and at most 3 instances.
-
-## CI: what runs when you push
-
-Open the **Actions** tab of the repository. The `CI` workflow (`.github/workflows/ci.yml`)
-runs on every push to `main` and every pull request, on GitHub's servers, with no
-cloud credentials and no model calls:
-
-| Job and step | What it checks |
+| Endpoint | Returns |
 |---|---|
-| test: unit tests | 49 tests: range model, backtest, API, guardrails, agent wiring |
-| test: attack corpus | known prompt-injection and secret-leak strings stay blocked or redacted (`hormuz/data/attack_corpus.json`) |
-| test: `adk eval` | ADK evaluation of the guardrail case in `evals/guardrails.evalset.json` |
-| test: build inputs, script syntax | Dockerfile and requirements exist, shell scripts parse |
-| secrets: gitleaks | no credentials in the repository history (`.gitleaks.toml` allows only the deliberately fake test keys) |
+| `GET /` and `GET /ops` | the dashboard and the ops page |
+| `GET /api/history`, `/api/forecast?price=`, `/api/backtest` | prices, range, backtest |
+| `GET /api/evidence` | model comparison and news verdict |
+| `GET /api/quality` | live guardrail evaluation against the attack corpus |
+| `GET /api/ops`, `/api/traces` | summary metrics and recent traces |
+| `POST /api/brief` | agent briefing with `trace_id` and `checks` |
 
-The badge at the top shows the real status of the latest run. A red run means a
-step failed: open it in the Actions tab to see which one. Deploys are separate
-(`deploy.yml`, manual, after CI). Evaluation metrics are on the dashboard: the
-backtest and model comparison under "How reliable is this range?", and the live
-guardrail results under "Safety checks".
+Public use is protected by per-IP and daily briefing limits
+(`BRIEFS_PER_IP_PER_HOUR`, `BRIEFS_PER_DAY`, per instance), the guardrails, a
+300 s timeout and at most 3 instances.
+
+## 🛡️ Guardrails: injection, privacy, no hallucination
+
+| Risk | Control | Where | Status |
+|---|---|---|---|
+| 🚫 Prompt injection in the question | override phrases, control characters and attachments blocked before any model call | `check_input` | 🟢 8 of 8 corpus cases |
+| 🕸️ Injection hidden in web results | web text treated as untrusted: phrases removed, length capped, format validated | `research_guard` | 🟢 2 of 2 |
+| 🔒 Personal data | emails and card-like numbers blocked; questions and IPs are never stored | `check_input`, `telemetry.py` | 🟢 included in the 8 |
+| 🔑 Secret leakage | API keys and tokens redacted from every model output | `egress_guard` | 🟢 2 of 2 |
+| 🧮 Hallucinated numbers | the range comes from code, not the model; each answer is checked for quoting that range, for off-range dollar figures and for the disclaimer | `telemetry.check_answer` | 🟡 reported per answer |
+| 🧰 Bad tool output | non-finite or implausible results rejected | `tool_output_guard` | 🟢 unit tested |
+
+The checks are deterministic code, not prompts. The attack corpus runs in CI on
+every push and live on `/ops`. The answer checks reduce hallucination risk but
+cannot prove every sentence in a briefing is true: sources must still be read.
+
+## ✅ CI: what runs when you push
+
+Open the **Actions** tab. The `CI` workflow (`.github/workflows/ci.yml`) runs on
+every push to `main` and every pull request, with no cloud credentials and no
+model calls:
+
+| Job and step | What it checks | Result |
+|---|---|---|
+| test: unit tests | 57 tests: range model, backtest, API, telemetry, guardrails, agent wiring | ✅ |
+| test: attack corpus | known injection, PII and secret strings stay blocked or redacted | ✅ |
+| test: `adk eval` | ADK evaluation in `evals/guardrails.evalset.json` | ✅ |
+| test: build inputs, script syntax | Dockerfile and requirements exist, shell scripts parse | ✅ |
+| secrets: gitleaks | no credentials in history (`.gitleaks.toml` allows only the fake test keys) | ✅ |
+
+The badge at the top shows the real status of the latest run. Deploys are separate
+(`deploy.yml`, manual, after CI).
+
+## 📈 Evaluation metrics
+
+| Metric | Value | Where to see it |
+|---|---|---|
+| Range coverage vs 80% target | 79.8% 🟢 | dashboard and `/ops` |
+| Average range width | 8.45% of price | dashboard |
+| Point error: no change vs momentum | 2.70% vs 2.72% 🟡 | dashboard |
+| Guardrail corpus | 14 of 14 🟢 | `/ops` |
+| News (GPR) predictive power | none, p = 0.36 and 0.73 🔴 | `/ops` |
+| Agent latency, completion, range-quoted rate | live | `/ops` |
+
+Traces are held in memory per server instance and reset on restart.
 
 ## Quick start
 

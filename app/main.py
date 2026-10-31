@@ -25,7 +25,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from hormuz import backtest, guardrails, market_data, quality, stat_model
+from hormuz import backtest, guardrails, market_data, quality, stat_model, telemetry
 
 logger = logging.getLogger("hormuz.app")
 STATIC = Path(__file__).parent / "static"
@@ -205,39 +205,69 @@ def _get_runner():
         return _runner
 
 
-async def _run_agents(question: str) -> str:
+async def _run_agents(question: str, trace: telemetry.Trace) -> str:
     from google.genai import types
     runner = _get_runner()
+    from hormuz.agent import collect
+    parallel = frozenset(a.name for a in collect.sub_agents)
     session = await runner.session_service.create_session(app_name="hormuz", user_id="web")
     message = types.Content(role="user", parts=[types.Part(text=question)])
     final = ""
-    async for event in runner.run_async(user_id="web", session_id=session.id, new_message=message):
-        if event.is_final_response() and event.content and event.content.parts:
-            text = "".join(p.text for p in event.content.parts if p.text and not p.thought)
-            if text:
-                final = text
-    await runner.session_service.delete_session(app_name="hormuz", user_id="web", session_id=session.id)
+    try:
+        async for event in runner.run_async(user_id="web", session_id=session.id, new_message=message):
+            trace.observe(event, parallel)
+            if event.is_final_response() and event.content and event.content.parts:
+                text = "".join(p.text for p in event.content.parts if p.text and not p.thought)
+                if text:
+                    final = text
+    finally:
+        await runner.session_service.delete_session(app_name="hormuz", user_id="web", session_id=session.id)
     return final
 
 
 @app.post("/api/brief")
 async def brief(body: BriefRequest, request: Request) -> JSONResponse:
     question = body.question.strip()
+    trace = telemetry.begin(len(question))
     reason = guardrails.check_input(question)
     if reason:
-        return JSONResponse({"blocked": True, "briefing": f"Request blocked: {reason}."}, status_code=200)
+        telemetry.finish(trace, "blocked")
+        return JSONResponse({"blocked": True, "briefing": f"Request blocked: {reason}.",
+                             "trace_id": trace.id}, status_code=200)
     limited = limiter.allow(client_ip(request))
     if limited:
+        telemetry.count("rate_limited")
+        telemetry.finish(trace, "rate_limited")
         raise HTTPException(429, limited)
-    request_id = uuid.uuid4().hex[:8]
     started = time.time()
     try:
-        text = await asyncio.wait_for(_run_agents(question), timeout=BRIEF_TIMEOUT_SECONDS)
+        text = await asyncio.wait_for(_run_agents(question, trace), timeout=BRIEF_TIMEOUT_SECONDS)
     except asyncio.TimeoutError:
-        logger.error("brief %s timed out", request_id)
+        logger.error("brief %s timed out", trace.id)
+        telemetry.finish(trace, "timeout")
         raise HTTPException(504, "The research agents took too long. Please try again.")
     except Exception as exc:
-        logger.error("brief %s failed: %s", request_id, type(exc).__name__)
-        raise HTTPException(502, f"The research agents are unavailable (reference {request_id}).")
-    logger.info("brief %s ok in %.1fs", request_id, time.time() - started)
-    return JSONResponse({"blocked": False, "briefing": text or "No briefing was produced."})
+        logger.error("brief %s failed: %s", trace.id, type(exc).__name__)
+        telemetry.finish(trace, "error")
+        raise HTTPException(502, f"The research agents are unavailable (reference {trace.id}).")
+    trace.checks = telemetry.check_answer(text, trace.tool_range)
+    telemetry.finish(trace, "ok")
+    logger.info("brief %s ok in %.1fs", trace.id, time.time() - started)
+    return JSONResponse({"blocked": False, "briefing": text or "No briefing was produced.",
+                         "trace_id": trace.id, "checks": trace.checks})
+
+
+@app.get("/api/ops")
+def ops_summary() -> dict:
+    """Operational metrics for the /ops dashboard (metadata only, per instance)."""
+    return telemetry.summary()
+
+
+@app.get("/api/traces")
+def ops_traces(limit: int = 30) -> list:
+    return telemetry.recent(max(1, min(limit, 100)))
+
+
+@app.get("/ops", include_in_schema=False)
+def ops_page() -> FileResponse:
+    return FileResponse(STATIC / "ops.html")
