@@ -7,7 +7,7 @@ for the next 48 hours.
 ## What makes the scenario
 
 The project does **not** contain a trained or backtested machine-learning model.
-`gemini-2.5-flash` is the language model used by the research, input-extraction,
+`gemini-3.8-flash` (override with the `GEMINI_MODEL` environment variable) is the language model used by the research, input-extraction,
 and critic agents; the Brent scenario is calculated by the deterministic Python
 function `predict_48h` in `hormuz/agent.py`. It combines fixed momentum,
 sentiment, and Hormuz-risk weights. The displayed range comes from a fixed

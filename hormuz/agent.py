@@ -9,11 +9,12 @@
 The price heuristic is not a trained or backtested financial model.
 """
 import math
+import os
 
 from google.adk.agents import Agent, ParallelAgent, SequentialAgent
 from google.adk.tools import google_search
 
-MODEL = "gemini-2.5-flash"
+MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
 
 
 def predict_48h(price: float, change_5d_pct: float, sentiment_score: float,
