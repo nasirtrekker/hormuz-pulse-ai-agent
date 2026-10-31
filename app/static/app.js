@@ -23,14 +23,29 @@ function stat(key, value, kind = "") {
 }
 
 function showStats(f) {
-  const grid = $("stats");
-  grid.replaceChildren(
-    stat(`Brent, ${f.as_of} (${f.anchored_on})`, `$${fmt(f.last_price)}`),
-    stat("48h low (10th percentile)", `$${fmt(f.low)}`, "low"),
-    stat("48h median", `$${fmt(f.median)}`, "mid"),
-    stat("48h high (90th percentile)", `$${fmt(f.high)}`, "high"),
-    stat("Daily volatility used (realised " + f.realised_daily_vol_pct + "%, options-implied " + f.implied_daily_vol_pct + "%)", `${f.daily_vol_pct}%`),
-  );
+  const lo = f.low * 0.985, hi = f.high * 1.015, pos = (p) => `${(((p - lo) / (hi - lo)) * 100).toFixed(1)}%`;
+  const left = document.createElement("div");
+  const big = document.createElement("div"); big.className = "price-big"; big.textContent = `$${fmt(f.last_price)}`;
+  const meta = document.createElement("div"); meta.className = "price-meta"; meta.textContent = `Brent crude, ${f.as_of} (${f.anchored_on})`;
+  const pill = document.createElement("span"); pill.className = "pill";
+  pill.textContent = `Volatility ${f.daily_vol_pct}%/day (realised ${f.realised_daily_vol_pct}%, options ${f.implied_daily_vol_pct}%)`;
+  left.append(big, meta, pill);
+
+  const right = document.createElement("div");
+  const t = document.createElement("div"); t.className = "gauge-title";
+  const t1 = document.createElement("span"); t1.textContent = "Likely range in 48 hours (80% confidence)";
+  t.append(t1);
+  const gauge = document.createElement("div"); gauge.className = "gauge";
+  const mk = (p, label, cls) => {
+    const m = document.createElement("div"); m.className = "mark " + cls; m.style.left = pos(p);
+    const b = document.createElement("b"); b.textContent = label; m.append(b); return m;
+  };
+  gauge.append(mk(f.median, `median $${fmt(f.median)}`, "med"), mk(f.last_price, "now", "last"));
+  const ends = document.createElement("div"); ends.className = "ends";
+  const end = (v, s) => { const e = document.createElement("span"); e.textContent = `$${fmt(v)}`; const sm = document.createElement("small"); sm.textContent = s; e.append(sm); return e; };
+  ends.append(end(f.low, "low (10th percentile)"), end(f.high, "high (90th percentile)"));
+  right.append(t, gauge, ends);
+  $("stats").replaceChildren(left, right);
 }
 
 function drawChart(history, f) {
@@ -107,6 +122,25 @@ async function init() {
       ["Point error, momentum rule", `${b.mape_momentum_pct}%`],
       ["Average range width (this model)", `${b.mean_blend_width_pct}% of price`],
     ];
+    const kpi = (big, lbl, pct, target) => {
+      const d = document.createElement("div"); d.className = "kpi";
+      const a = document.createElement("div"); a.className = "big"; a.textContent = big;
+      const l = document.createElement("div"); l.className = "lbl"; l.textContent = lbl;
+      d.append(a, l);
+      if (pct !== undefined) {
+        const bar = document.createElement("div"); bar.className = "bar";
+        const i = document.createElement("i"); i.style.width = Math.min(pct, 100) + "%"; bar.append(i);
+        if (target !== undefined) { const u = document.createElement("u"); u.style.left = target + "%"; bar.append(u); }
+        d.append(bar);
+      }
+      return d;
+    };
+    $("kpis").replaceChildren(
+      kpi(`${b.coverage_blend_pct}%`, "of real outcomes landed inside the 80% range (white line = 80% target)", b.coverage_blend_pct, 80),
+      kpi(`${b.mean_blend_width_pct}%`, "average width of the range, as a share of price"),
+      kpi(`${b.forecasts}`, `forecasts tested, ${b.from} to ${b.to}`),
+      kpi(`${b.mape_no_change_pct}% vs ${b.mape_momentum_pct}%`, "point error: 'price stays the same' vs momentum. Neither wins."),
+    );
     $("bt").replaceChildren(...rows.map(([k, v]) => {
       const tr = document.createElement("tr");
       const a = document.createElement("td"); a.textContent = k;
@@ -134,7 +168,7 @@ async function loadEvidence() {
     });
     $("ev").replaceChildren(head, ...rows);
     const g = e.news_tests.find((t) => t.feature === "gpr");
-    $("evnote").textContent =
+    $("evnote").textContent = "Verdict: " +
       `News (Geopolitical Risk Index) vs the next 2-day move: correlation ${g.rho_direction} for direction (p=${g.p_direction}) and ${g.rho_size} for size (p=${g.p_size}), i.e. no measurable predictive power. ` +
       `No model beat "no change" on the point forecast (median error ${e.no_change_median_abs_error_pct}% for no change). Only options-implied volatility improved the range.`;
   } catch (err) {

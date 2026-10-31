@@ -58,6 +58,28 @@
   .avatar { width:56px; height:56px; border-radius:50%; background:linear-gradient(135deg,var(--acc),var(--acc2)); display:grid; place-items:center; font-weight:800; color:#05101c; font-size:1.3rem; }
   .contact h2 { margin:0; } .contact p { margin:2px 0 0; color:var(--mute); }
   .card, .step { animation:up .5s ease both; } @keyframes up { from { opacity:0; transform:translateY(8px); } }
+  .hero-card { display:grid; grid-template-columns:minmax(220px,1fr) 2fr; gap:24px; align-items:center; }
+  @media (max-width:720px) { .hero-card { grid-template-columns:1fr; } }
+  .price-big { font-size:clamp(2.6rem,7vw,3.8rem); font-weight:800; letter-spacing:-.03em; line-height:1; }
+  .price-meta { color:var(--mute); font-size:.85rem; margin-top:8px; }
+  .pill { display:inline-block; margin-top:12px; padding:4px 12px; border-radius:999px; font-size:.8rem; border:1px solid var(--line); background:rgba(255,255,255,.04); }
+  .gauge-title { display:flex; justify-content:space-between; color:var(--mute); font-size:.85rem; margin-bottom:34px; }
+  .gauge { position:relative; height:14px; border-radius:999px; background:linear-gradient(90deg,var(--down),#fbbf24 50%,var(--up)); opacity:.9; }
+  .mark { position:absolute; top:-6px; width:3px; height:26px; background:#fff; border-radius:2px; transform:translateX(-50%); box-shadow:0 0 12px rgba(255,255,255,.7); }
+  .mark b { position:absolute; bottom:32px; left:50%; transform:translateX(-50%); white-space:nowrap; font-size:.75rem; font-weight:600; color:#fff; background:rgba(7,11,18,.85); border:1px solid var(--line); padding:2px 8px; border-radius:6px; }
+  .mark.last b { bottom:-34px; color:var(--acc); }
+  .ends { display:flex; justify-content:space-between; margin-top:44px; font-size:1.15rem; font-weight:700; }
+  .ends span:first-child { color:var(--down); } .ends span:last-child { color:var(--up); }
+  .ends small { display:block; color:var(--mute); font-weight:400; font-size:.75rem; }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; margin-bottom:14px; }
+  .kpi { padding:16px; border-radius:14px; border:1px solid var(--line); background:rgba(255,255,255,.03); }
+  .kpi .big { font-size:1.9rem; font-weight:800; letter-spacing:-.02em; } .kpi .lbl { color:var(--mute); font-size:.82rem; }
+  .bar { height:8px; border-radius:99px; background:rgba(255,255,255,.08); margin-top:10px; overflow:hidden; position:relative; }
+  .bar i { display:block; height:100%; border-radius:99px; background:linear-gradient(90deg,var(--acc),var(--acc2)); }
+  .bar u { position:absolute; top:0; bottom:0; width:2px; background:#fff; }
+  .verdict { border-radius:12px; padding:14px 16px; margin:14px 0 0; background:rgba(251,191,36,.08); border:1px solid rgba(251,191,36,.3); font-size:.92rem; }
+  .verdict.good { background:rgba(52,211,153,.08); border-color:rgba(52,211,153,.3); }
+  details { margin-top:14px; } summary { cursor:pointer; color:var(--acc); font-size:.9rem; }
   footer { color:var(--mute); font-size:.8rem; margin-top:26px; }
   a { color:var(--acc); }
 </style>
@@ -91,9 +113,7 @@
     <div class="answer" id="briefing" aria-live="polite"></div>
   </section>
 
-  <section class="card">
-    <div class="grid" id="stats"><div class="note">Loading Brent data…</div></div>
-  </section>
+  <section class="card hero-card" id="stats"><div class="note">Loading Brent data…</div></section>
 
   <section class="card">
     <h2>Brent price and 48-hour range</h2>
@@ -112,14 +132,19 @@
 
   <section class="card">
     <h2>How reliable is this range?</h2>
-    <div class="scroll"><table id="bt"><tr><td class="note">Running walk-forward backtest…</td></tr></table></div>
-    <p class="note">Every past forecast used only data available at the time. The range is calibrated, but no point forecast beat "the price stays the same", so treat it as a risk range, not a prediction of direction.</p>
+    <div class="kpis" id="kpis"></div>
+    <details><summary>Show full backtest numbers</summary>
+      <div class="scroll"><table id="bt"><tr><td class="note">Running walk-forward backtest…</td></tr></table></div>
+    </details>
+    <div class="verdict" id="verdict1">Every past forecast used only data available at the time. The range is calibrated, but no point forecast beat "the price stays the same", so treat it as a risk range, not a prediction of direction.</div>
   </section>
 
   <section class="card">
     <h2>Does news predict the price? What we tested</h2>
-    <div class="scroll"><table id="ev"><tr><td class="note">Loading experiment results…</td></tr></table></div>
-    <p class="note" id="evnote"></p>
+    <div class="verdict good" id="evnote">Loading experiment results…</div>
+    <details open><summary>Model comparison</summary>
+      <div class="scroll"><table id="ev"><tr><td class="note">Loading…</td></tr></table></div>
+    </details>
   </section>
 
   <section class="card">
