@@ -92,39 +92,46 @@ if __name__ == "__main__":
     print(f"{refresh_ovx_snapshot()} OVX observations written to {OVX_SNAPSHOT}")
 
 
-FUTURES_URL = "https://query1.finance.yahoo.com/v8/finance/chart/BZ=F?range=7d&interval=1d"
+FUTURES_URL = "https://query1.finance.yahoo.com/v8/finance/chart/BZ=F?range=2y&interval=1d"
 _futures_cache: dict = {"at": 0.0, "value": None}
 _futures_lock = threading.Lock()
 
 
-def parse_futures(text: str, reference: float):
-    """Latest daily close of front-month Brent futures (BZ=F) as (date, price), or None.
+def parse_futures_series(text: str, reference: float) -> list:
+    """Daily closes of front-month Brent futures (BZ=F) as [(date, price)], or [] if implausible.
 
-    Rejects values that are not finite, outside 10..500 USD, or more than 35% away from the
-    reference spot price, so a bad feed can never move the anchor far.
+    The latest close must be finite, within 10..500 USD and within 35% of the reference spot
+    price, so a bad feed can never move the anchor far.
     """
     result = json.loads(text)["chart"]["result"][0]
-    closes = result["indicators"]["quote"][0]["close"]
-    for ts, close in reversed(list(zip(result["timestamp"], closes))):
-        if close is None:
-            continue
-        price = float(close)
-        if not (10 <= price <= 500) or abs(price / reference - 1) > 0.35:
-            return None
-        return datetime.fromtimestamp(ts, timezone.utc).date().isoformat(), round(price, 2)
-    return None
+    rows = [(datetime.fromtimestamp(ts, timezone.utc).date().isoformat(), round(float(c), 2))
+            for ts, c in zip(result["timestamp"], result["indicators"]["quote"][0]["close"])
+            if c is not None and 10 <= float(c) <= 500]
+    if not rows or abs(rows[-1][1] / reference - 1) > 0.35:
+        return []
+    return rows
 
 
-def latest_futures(reference: float, ttl: int = 900):
-    """Cached latest Brent futures close, or None when the unofficial public feed is unavailable."""
+def parse_futures(text: str, reference: float):
+    rows = parse_futures_series(text, reference)
+    return rows[-1] if rows else None
+
+
+def futures_series(reference: float, ttl: int = 900) -> list:
+    """Cached futures closes, or [] when the unofficial public feed is unavailable."""
     with _futures_lock:
         if time.time() - _futures_cache["at"] < ttl:
-            return _futures_cache["value"]
+            return _futures_cache["value"] or []
         _futures_cache["at"] = time.time()
         try:
             req = urllib.request.Request(FUTURES_URL, headers={"User-Agent": "Mozilla/5.0"})
             with urllib.request.urlopen(req, timeout=8) as resp:
-                _futures_cache["value"] = parse_futures(resp.read().decode("utf-8"), reference)
+                _futures_cache["value"] = parse_futures_series(resp.read().decode("utf-8"), reference)
         except Exception:
-            _futures_cache["value"] = None
+            _futures_cache["value"] = []
         return _futures_cache["value"]
+
+
+def latest_futures(reference: float, ttl: int = 900):
+    rows = futures_series(reference, ttl)
+    return rows[-1] if rows else None

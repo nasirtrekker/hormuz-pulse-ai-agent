@@ -155,6 +155,11 @@ def index() -> FileResponse:
 def history(years: int = 3) -> dict:
     data.refresh_if_stale()
     years = max(1, min(years, 40))
+    futures = market_data.futures_series(data.prices[-1])
+    if futures:
+        return {"source": "Brent futures (BZ=F) daily close", "series": "front-month Brent futures, USD per barrel",
+                "dates": [d for d, _ in futures], "prices": [p for _, p in futures],
+                "total_observations": len(data.prices), "first_date": data.dates[0]}
     cutoff = int(data.dates[-1][:4]) - years
     keep = [i for i, d in enumerate(data.dates) if int(d[:4]) >= cutoff]
     return {"source": data.source, "series": "FRED DCOILBRENTEU, USD per barrel",

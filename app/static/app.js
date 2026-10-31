@@ -90,7 +90,7 @@ function drawChart(history, f) {
   ctx.beginPath(); ctx.moveTo(x0, y(f.last_price)); ctx.lineTo(x1, y(f.median)); ctx.stroke(); ctx.setLineDash([]);
   ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(x0, y(f.last_price), 4, 0, 7); ctx.fill();
   $("chartnote").textContent =
-    `Line: FRED Europe Brent spot, last ${prices.length} trading days (latest spot ${f.spot_as_of}). Cone: 80% range two trading days ahead of the ${f.anchored_on}, $${fmt(f.low)} to $${fmt(f.high)}. Spot and futures can differ by several dollars.`;
+    `Line: ${historyData.source}, last ${prices.length} trading days. Cone: 80% range two trading days ahead of the ${f.anchored_on}, $${fmt(f.low)} to $${fmt(f.high)}.`;
 }
 
 let historyData = null;
