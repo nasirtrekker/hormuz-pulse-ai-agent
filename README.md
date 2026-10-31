@@ -113,6 +113,44 @@ flowchart LR
 | Docker, Cloud Run, Cloud Build | container build and hosting |
 | GitHub Actions, Workload Identity Federation | CI and keyless deploy |
 
+## 🤝 Agents, tools and how they collaborate
+
+```mermaid
+flowchart TB
+    M[User message] --> R{route in app/main.py}
+    R -->|greeting or follow-up| CH[chat_agent<br/>tool: current_brent_range]
+    R -->|predict, brief, research| ROOT[hormuz_pulse: SequentialAgent]
+    subgraph ROOT_G[Research pipeline, one ADK session]
+        ROOT --> COL[collect: ParallelAgent]
+        subgraph COL_G[run at the same time]
+            N[news_agent<br/>tool: google_search<br/>writes state news]
+            S[sentiment_agent<br/>tool: google_search<br/>writes state sentiment]
+            D[data_agent<br/>tool: google_search<br/>writes state market]
+        end
+        COL --> N & S & D
+        N & S & D --> P[predictor_agent<br/>tools: current_brent_range, predict_48h<br/>reads news, sentiment, market<br/>writes state forecast]
+        P --> C[critic_agent<br/>no tools<br/>reads forecast, news, sentiment, market<br/>writes state briefing]
+    end
+    C --> A[Answer + answer checks]
+    CH --> A
+    C -. state briefing, news, sentiment .-> CH
+```
+
+| Agent | Model | Tools | Reads | Writes |
+|---|---|---|---|---|
+| `news_agent` | Gemini | `google_search` | the user message | state `news` |
+| `sentiment_agent` | Gemini | `google_search` | the user message | state `sentiment` |
+| `data_agent` | Gemini | `google_search` | the user message | state `market` |
+| `predictor_agent` | Gemini | `current_brent_range` (public futures close + range model), `predict_48h` (illustrative overlay) | `news`, `sentiment`, `market` | state `forecast` |
+| `critic_agent` | Gemini | none | `forecast`, `news`, `sentiment`, `market` | state `briefing` |
+| `chat_agent` | Gemini | `current_brent_range` | `briefing`, `news`, `sentiment` and the conversation | the reply |
+
+**How they collaborate.** All agents run inside one process, orchestrated by Google ADK workflow agents: `ParallelAgent` for the three researchers and `SequentialAgent` for research, predictor, critic. They do not message each other: each agent saves its output to the shared ADK session state (`output_key`) and the next agent's instruction reads it. Guardrail callbacks sit between the stages (`research_guard` after the researchers, `tool_output_guard` after tools, `egress_guard` after every model reply).
+
+**Is it A2A or MCP?** No. There is no Agent2Agent protocol, no MCP server or client, no agent-as-a-tool and no remote agents. Everything is in-process ADK; the only network calls are Gemini on Vertex AI (with Google Search grounding), optional Model Armor, and the public data downloads. Both could be added later (for example exposing `current_brent_range` as an MCP tool, or running the researchers as A2A services), but they are not used today.
+
+**Other Google services used by the agents:** Vertex AI (Gemini), Grounding with Google Search, and optionally Model Armor. No Vertex AI Agent Engine, Vector Search or embeddings.
+
 ## ☁️ Which Google Cloud service does what
 
 | Service | Job in this app | When it costs money |
