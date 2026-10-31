@@ -1,19 +1,24 @@
 # Hormuz Pulse
 
-Hormuz Pulse is a Google Agent Development Kit (ADK) demo that researches Strait
-of Hormuz and oil-market news and produces an illustrative Brent price scenario
-for the next 48 hours.
+Hormuz Pulse is a web app for forecasters, investors and the public. Open the
+link and it shows real Brent crude history from FRED, a data-driven 48-hour price
+range with its backtested reliability, and a button that runs a Gemini research
+agent team (Google ADK) for a live briefing on the Strait of Hormuz.
 
-## What makes the scenario
+| Part | Where | Notes |
+|---|---|---|
+| Web service (FastAPI) | `app/main.py`, `app/static/` | dashboard, JSON API, rate limits, security headers |
+| Range model and backtest | `hormuz/stat_model.py`, `hormuz/backtest.py` | public data, no API key |
+| Agent team | `hormuz/agent.py` | ADK, Gemini on Vertex AI, Google Search |
+| Guardrails | `hormuz/guardrails.py`, `hormuz/model_armor.py` | see below |
 
-The project does **not** contain a trained or backtested machine-learning model.
-`gemini-3.8-flash` (override with the `GEMINI_MODEL` environment variable) is the language model used by the research, input-extraction,
-and critic agents; the Brent scenario is calculated by the deterministic Python
-function `predict_48h` in `hormuz/agent.py`. It combines fixed momentum,
-sentiment, and Hormuz-risk weights. The displayed range comes from a fixed
-volatility assumption and is **not** a calibrated 80% confidence interval.
-These assumptions have not been validated against historical Brent data. Treat
-the result as an educational scenario, not trading advice.
+API: `GET /api/history`, `GET /api/forecast?price=`, `GET /api/backtest`,
+`POST /api/brief`, `GET /healthz`. The dashboard works without any cloud
+credentials; only the briefing needs Vertex AI. Public use is protected by
+per-IP and daily briefing limits (`BRIEFS_PER_IP_PER_HOUR`, `BRIEFS_PER_DAY`,
+per instance), the guardrails, a 300 s timeout and at most 3 instances.
+
+## What the agent's overlay is
 
 ## Multi-agent workflow
 
@@ -87,7 +92,7 @@ All market data is public and no API key is needed.
 
 | Item | Source | Used for |
 |---|---|---|
-| Brent daily spot, 1987 to 2026-10-27 (10,290 days) | FRED series `DCOILBRENTEU` (`hormuz/data/`, refreshed with `python -m hormuz.market_data`) | the 48-hour range |
+| Brent daily spot, 1987 to 2026-10-27 (9,117 valid daily prices) | FRED series `DCOILBRENTEU` (`hormuz/data/`, refreshed with `python -m hormuz.market_data`) | the 48-hour range |
 | Latest price, news, sentiment | Gemini with Google Search grounding, at request time | the starting price and the narrative |
 
 `hormuz/stat_model.py` builds the range: for every past day it measures the 2-day
@@ -184,24 +189,26 @@ key to store.
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
 uv venv --python 3.12 .venv
-uv pip install --python .venv/bin/python -r hormuz/requirements.txt
+uv pip install --python .venv/bin/python -r requirements.txt
 cp .env.example .env        # .env is gitignored; edit the project ID if needed
 gcloud auth application-default login
 set -a; source .env; set +a
-.venv/bin/adk web
+.venv/bin/uvicorn app.main:app --port 8080     # the web app: http://localhost:8080
 ```
 
-Select `hormuz` in the UI and ask: "Predict Brent for the next 48 hours."
+The dashboard works immediately. The briefing button needs the Vertex AI login
+above. For the ADK developer UI run `.venv/bin/adk web` and pick `hormuz`.
 
-Run the deterministic forecast tests:
+Run the tests (API, guardrails, model, attack corpus):
 
 ```bash
-.venv/bin/python -m unittest discover -s tests
+uv pip install --python .venv/bin/python -r requirements-dev.txt
+.venv/bin/python -W ignore -m unittest discover -s tests
 ```
 
 ## Google Cloud Run deployment
 
-Deployment uses Google Cloud Build and the ADK `adk deploy cloud_run` command.
+Deployment builds the repository `Dockerfile` with Cloud Build (`gcloud run deploy --source`).
 The service is private by default, uses a dedicated Cloud Run service account,
 and calls Gemini through Vertex AI with that service account (`roles/aiplatform.user`).
 No API key is created, stored, or committed.
@@ -228,7 +235,7 @@ No API key is created, stored, or committed.
 3. The deploying identity needs permission to enable APIs, deploy Cloud Run,
    use the runtime service account, grant IAM roles, and run Cloud Build.
    Ask the project administrator to grant the least-privilege roles required
-   by the organization. ADK's Cloud Run deploy uses Cloud Build; its build
+   by the organization. Cloud Build builds the container; its build
    service account must have `roles/cloudbuild.builds.builder`.
 
 ### Deploy
@@ -247,19 +254,20 @@ To make the service public for a demo, explicitly opt in:
 PUBLIC_SERVICE=true ./deploy.sh YOUR_PROJECT_ID [REGION]
 ```
 
-Public access can incur usage and model costs; use it only when intended. The
-ADK web UI is a development interface, not a hardened public product UI.
-Cloud Run's default ADK session and artifact services are in-memory, so session
-data does not persist across instance restarts or scale-down.
+Public access can incur Vertex AI costs, billed to the project: each briefing runs
+several Gemini calls with Google Search. The limits above cap this but are per
+instance. Briefing sessions are in memory and deleted after each request.
+Model Armor is optional: create the templates first, then deploy with
+`ENABLE_MODEL_ARMOR=true`, otherwise it fails closed and blocks every request.
 
 ## Production limitations and next steps
 
-Before using this for operational or financial decisions, replace the heuristic
-with a model trained and evaluated on timestamped historical Brent, market, and
-Hormuz-risk data. Use a chronological holdout/backtest, compare with simple
-baselines, document prediction error and calibration, and monitor drift. Use
-reliable licensed market data instead of treating web search as a price feed.
-Also add durable session storage only if the product needs conversation history.
+The 48-hour range is backtested, but the price series is daily spot data that
+FRED updates with a delay, and the briefing's live price comes from web search,
+not a licensed feed. Before using this for financial decisions: add a licensed
+real-time price source, test whether news-volume features (for example GDELT)
+improve the backtest, and monitor calibration over time. Limits are per instance;
+use Cloud Armor or a shared store if abuse becomes a problem.
 
 For incidents and request diagnostics, inspect the Cloud Run service logs in
 Cloud Logging.

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hormuz Pulse: Brent 48-hour outlook</title>
+<style>
+  :root { --bg:#0f1419; --card:#18202a; --line:#2a3544; --text:#e6edf3; --mute:#8b98a8; --acc:#4cc2ff; --up:#3fb950; --down:#f85149; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
+  main { max-width:960px; margin:0 auto; padding:20px 16px 48px; }
+  h1 { font-size:1.5rem; margin:0 0 4px; } h2 { font-size:1.05rem; margin:0 0 10px; }
+  .sub { color:var(--mute); margin:0 0 18px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:16px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; }
+  .stat .v { font-size:1.6rem; font-weight:650; } .stat .k { color:var(--mute); font-size:.85rem; }
+  canvas { width:100%; height:300px; display:block; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  input, button { font:inherit; border-radius:8px; border:1px solid var(--line); padding:9px 12px; background:#0f1419; color:var(--text); }
+  input { flex:1; min-width:220px; } button { background:var(--acc); color:#04141f; border:0; font-weight:650; cursor:pointer; }
+  button:disabled { opacity:.55; cursor:progress; }
+  table { width:100%; border-collapse:collapse; } td,th { text-align:left; padding:6px 4px; border-bottom:1px solid var(--line); }
+  th { color:var(--mute); font-weight:500; }
+  pre { white-space:pre-wrap; word-wrap:break-word; font:inherit; margin:12px 0 0; }
+  .note { color:var(--mute); font-size:.85rem; } .err { color:var(--down); }
+  a { color:var(--acc); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Hormuz Pulse</h1>
+  <p class="sub">Brent crude: what the last 39 years of data say about the next 48 hours, plus a live research briefing on the Strait of Hormuz.</p>
+
+  <section class="card">
+    <div class="grid" id="stats"><div class="note">Loading Brent data…</div></div>
+  </section>
+
+  <section class="card">
+    <h2>Brent price and 48-hour range</h2>
+    <canvas id="chart" role="img" aria-label="Brent price history with forecast range"></canvas>
+    <p class="note" id="chartnote"></p>
+  </section>
+
+  <section class="card">
+    <h2>Try your own starting price</h2>
+    <div class="row">
+      <input id="price" type="number" min="10" max="500" step="0.01" placeholder="Brent price in USD (optional)" aria-label="Brent price in USD">
+      <button id="recalc">Recalculate range</button>
+    </div>
+    <p class="note">The range is computed from history around the price you enter (10 to 500 USD).</p>
+  </section>
+
+  <section class="card">
+    <h2>How reliable is this range?</h2>
+    <table id="bt"><tr><td class="note">Running walk-forward backtest…</td></tr></table>
+    <p class="note">Every past forecast used only data available at the time. The range is calibrated, but no point forecast beat "the price stays the same", so treat it as a risk range, not a prediction of direction.</p>
+  </section>
+
+  <section class="card">
+    <h2>Live research briefing</h2>
+    <p class="note">Gemini searches current news, sentiment and the latest price, then a critic checks the result. Takes 1 to 3 minutes. Limited to a few briefings per hour.</p>
+    <div class="row">
+      <input id="question" maxlength="1000" value="Predict Brent for the next 48 hours." aria-label="Question">
+      <button id="brief">Generate briefing</button>
+    </div>
+    <pre id="briefing" aria-live="polite"></pre>
+  </section>
+
+  <p class="note">Educational only, not financial advice. Data: FRED series DCOILBRENTEU (Brent spot) from the U.S. Energy Information Administration. Briefings use Google Search and Gemini, and may contain errors: check the cited sources.</p>
+</main>
+<script src="/static/app.js"></script>
+</body>
+</html>

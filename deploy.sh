@@ -11,15 +11,11 @@ RUNTIME_SA_NAME="hormuz-pulse-runtime"
 PUBLIC_SERVICE="${PUBLIC_SERVICE:-false}"
 SKIP_BOOTSTRAP="${SKIP_BOOTSTRAP:-false}"
 PYTHON="$SCRIPT_DIR/.venv/bin/python"
-ADK="$SCRIPT_DIR/.venv/bin/adk"
 
-# Local runs use the project venv; CI uses the tools already on PATH.
-if [[ ! -x "$PYTHON" || ! -x "$ADK" ]]; then
-  PYTHON="$(command -v python3 || true)"
-  ADK="$(command -v adk || true)"
-fi
-if [[ -z "$PYTHON" || -z "$ADK" ]]; then
-  echo "adk not found. Create .venv and install hormuz/requirements.txt first." >&2
+# gcloud needs a Python 3.10+; prefer the project venv, then whatever python3 is on PATH.
+[[ -x "$PYTHON" ]] || PYTHON="$(command -v python3 || true)"
+if [[ -z "$PYTHON" ]]; then
+  echo "python3 not found." >&2
   exit 1
 fi
 
@@ -90,23 +86,25 @@ else
   ACCESS_FLAGS=(--no-allow-unauthenticated)
 fi
 
-"$ADK" deploy cloud_run \
-  --project "$PROJECT" \
-  --region "$REGION" \
-  --service_name "$SERVICE" \
-  --app_name hormuz \
-  --with_ui \
-  "$SCRIPT_DIR/hormuz" \
-  -- \
-  --service-account="$RUNTIME_SA" \
-  --max=3 \
-  "${ACCESS_FLAGS[@]}"
+ENV_VARS="GOOGLE_GENAI_USE_VERTEXAI=TRUE,GOOGLE_CLOUD_PROJECT=$PROJECT,GOOGLE_CLOUD_LOCATION=$VERTEX_LOCATION"
+# Only enable once scripts/create_model_armor_templates.py has created the templates:
+# with missing templates the filter fails closed and blocks every request.
+if [[ "${ENABLE_MODEL_ARMOR:-false}" == "true" ]]; then
+  ENV_VARS+=",MODEL_ARMOR_LOCATION=$MODEL_ARMOR_LOCATION,MODEL_ARMOR_INPUT_TEMPLATE=hormuz-input,MODEL_ARMOR_OUTPUT_TEMPLATE=hormuz-output"
+fi
 
-gcloud run services update "$SERVICE" \
+# Builds the Dockerfile in this directory with Cloud Build and deploys it.
+gcloud run deploy "$SERVICE" \
   --project "$PROJECT" \
   --region "$REGION" \
+  --source "$SCRIPT_DIR" \
   --service-account "$RUNTIME_SA" \
-  --update-env-vars "GOOGLE_GENAI_USE_VERTEXAI=TRUE,GOOGLE_CLOUD_PROJECT=$PROJECT,GOOGLE_CLOUD_LOCATION=$VERTEX_LOCATION,MODEL_ARMOR_LOCATION=$MODEL_ARMOR_LOCATION,MODEL_ARMOR_INPUT_TEMPLATE=hormuz-input,MODEL_ARMOR_OUTPUT_TEMPLATE=hormuz-output"
+  --max-instances 3 \
+  --concurrency 20 \
+  --timeout 300 \
+  --memory 1Gi \
+  --set-env-vars "$ENV_VARS" \
+  "${ACCESS_FLAGS[@]}"
 
 URL="$(gcloud run services describe "$SERVICE" \
   --project "$PROJECT" \
@@ -114,5 +112,5 @@ URL="$(gcloud run services describe "$SERVICE" \
   --format='value(status.url)')"
 printf 'Deployed service: %s\n' "$URL"
 if [[ "$PUBLIC_SERVICE" == "false" ]]; then
-  printf 'Access is authenticated. Grant Cloud Run Invoker to users who need access.\n'
+  printf 'Open the URL above. Access is authenticated. Grant Cloud Run Invoker to users who need access.\n'
 fi

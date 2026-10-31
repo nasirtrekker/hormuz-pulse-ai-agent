@@ -28,6 +28,8 @@ jobs:
         run: python -W ignore -m unittest discover -s tests
       - name: ADK guardrail eval (no model call, no cloud credentials)
         run: adk eval hormuz evals/guardrails.evalset.json --config_file_path evals/test_config.json
+      - name: Container build inputs exist
+        run: test -f Dockerfile && test -f requirements.txt && test -f app/static/index.html
       - name: Script syntax
         run: bash -n deploy.sh && bash -n scripts/setup_cicd.sh
 
