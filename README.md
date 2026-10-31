@@ -5,8 +5,7 @@ real Brent crude history, a data-driven 48-hour price range with its backtested
 reliability, and a button that runs a team of Gemini research agents (Google ADK)
 for a live briefing on the Strait of Hormuz.
 
-**Live app:** `<PUBLIC_URL>` (printed by `./deploy.sh` at the end of a deploy; replace
-this placeholder with that URL once deployed).
+**Live app: https://hormuz-pulse-2o4l63xkqq-nw.a.run.app**
 
 ![Dashboard](docs/dashboard.png)
 
