@@ -23,19 +23,19 @@
   </header>
 
   <section class="card ask">
-    <h2><span class="emoji">💬</span>Ask the research team</h2>
+    <h2><span class="emoji">💬</span>Chat with the research team <button class="chip" id="newchat" type="button">🔄 New chat</button></h2>
+    <div class="chatlog" id="chatlog" aria-live="polite"></div>
     <div class="row">
-      <input id="question" maxlength="1000" value="Predict Brent for the next 48 hours." aria-label="Your question">
-      <button id="brief">Ask</button>
+      <input id="question" maxlength="1000" placeholder="Say hi, or ask: Predict Brent for the next 48 hours." aria-label="Your message">
+      <button id="brief">Send</button>
     </div>
     <div class="chips" id="chips">
+      <button class="chip" type="button">Predict Brent for the next 48 hours.</button>
       <button class="chip" type="button">What is driving oil prices today?</button>
       <button class="chip" type="button">How risky is the Strait of Hormuz right now?</button>
-      <button class="chip" type="button">Predict Brent for the next 48 hours.</button>
+      <button class="chip" type="button">Why is the range that wide?</button>
     </div>
-    <p class="note">Takes 1 to 3 minutes. Please do not include personal data: it is blocked before reaching the model.</p>
-    <div class="answer" id="briefing" aria-live="polite"></div>
-    <div class="checks" id="answerchecks"></div>
+    <p class="note">I remember this conversation for one hour. Greetings and follow-ups answer in seconds; a fresh briefing takes 1 to 3 minutes. Do not share personal data: it is blocked.</p>
   </section>
 
   <section class="card hero-card" id="stats"><div class="note">Loading Brent data…</div></section>

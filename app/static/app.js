@@ -141,38 +141,63 @@ $("recalc").addEventListener("click", async () => {
   catch (err) { $("chartnote").textContent = err.message; $("chartnote").className = "note err"; }
 });
 
-$("brief").addEventListener("click", async () => {
-  const button = $("brief"), out = $("briefing");
-  button.disabled = true; out.className = "answer show"; out.replaceChildren(); $("answerchecks").replaceChildren();
-  const spin = document.createElement("span"); spin.className = "spin";
-  out.append(spin, "Researching news, sentiment and prices… this takes 1 to 3 minutes.");
+const KEY = "hormuz_chat";
+let chat = JSON.parse(sessionStorage.getItem(KEY) || '{"sid":null,"msgs":[]}');
+const save = () => sessionStorage.setItem(KEY, JSON.stringify(chat));
+
+function bubble(role, text, r) {
+  const d = document.createElement("div"); d.className = "msg " + role;
+  d.textContent = text;
+  if (r) { const c = document.createElement("div"); c.className = "checks"; d.append(c); showChecks(r, c); }
+  $("chatlog").append(d); $("chatlog").scrollTop = $("chatlog").scrollHeight;
+  return d;
+}
+
+chat.msgs.forEach((m) => bubble(m.role, m.text, m.r));
+
+async function send() {
+  const input = $("question"), text = input.value.trim();
+  if (!text) return;
+  const button = $("brief");
+  button.disabled = true; input.value = "";
+  bubble("user", text); chat.msgs.push({ role: "user", text });
+  const wait = bubble("bot", ""); const spin = document.createElement("span"); spin.className = "spin";
+  wait.append(spin, "Thinking… a fresh briefing can take 1 to 3 minutes.");
   try {
     const r = await getJSON("/api/brief", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question: $("question").value }),
+      body: JSON.stringify({ question: text, session_id: chat.sid }),
     });
-    out.className = "answer show"; out.textContent = r.briefing;
-    showChecks(r);
+    if (r.session_id) chat.sid = r.session_id;
+    wait.remove(); bubble("bot", r.briefing, r);
+    chat.msgs.push({ role: "bot", text: r.briefing, r: { blocked: r.blocked, checks: r.checks, trace_id: r.trace_id, mode: r.mode } });
   } catch (err) {
-    out.className = "answer show err"; out.textContent = err.message; $("answerchecks").replaceChildren();
-  } finally { button.disabled = false; }
+    wait.remove(); bubble("bot err", err.message);
+  } finally { save(); button.disabled = false; input.focus(); }
+}
+
+$("brief").addEventListener("click", send);
+$("question").addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+$("newchat").addEventListener("click", () => {
+  chat = { sid: null, msgs: [] }; save(); $("chatlog").replaceChildren();
 });
 
-function showChecks(r) {
-  const box = $("answerchecks"); box.replaceChildren();
+function showChecks(r, box) {
   const add = (cls, text) => { const s = document.createElement("span"); s.className = "check " + cls; s.textContent = text; box.append(s); };
   if (r.blocked) { add("bad", "🚫 Blocked by guardrails before any model ran"); return; }
   const c = r.checks || {};
   add("ok", "🛡️ Guardrails passed");
+  if (r.mode === "chat") add("na", "💬 Chat reply");
+  if (r.mode === "chat" && c.range_quoted == null) { if (r.trace_id) add("na", `🔎 trace ${r.trace_id}`); return; }
   if (c.range_quoted === true) add("ok", "🧮 Quotes the computed range");
   else if (c.range_quoted === false) add("bad", "⚠️ Does not quote the computed range: rely on the numbers above");
   else add("na", "ℹ️ Range tool not used in this answer");
   if (c.off_range_figures) add("bad", `⚠️ ${c.off_range_figures} price figure(s) far from the computed range: verify`);
-  add(c.disclaimer ? "ok" : "bad", c.disclaimer ? "📌 Disclaimer present" : "⚠️ Disclaimer missing");
+  if (r.mode !== "chat") add(c.disclaimer ? "ok" : "bad", c.disclaimer ? "📌 Disclaimer present" : "⚠️ Disclaimer missing");
   if (r.trace_id) add("na", `🔎 trace ${r.trace_id}`);
 }
 
-document.querySelectorAll("#chips .chip").forEach((c) => c.addEventListener("click", () => { $("question").value = c.textContent; $("question").focus(); }));
+document.querySelectorAll("#chips .chip").forEach((c) => c.addEventListener("click", () => { $("question").value = c.textContent; send(); }));
 
 window.addEventListener("resize", () => { if (historyData) loadForecast($("price").value || undefined).catch(() => {}); });
 init();

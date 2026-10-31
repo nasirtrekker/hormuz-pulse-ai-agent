@@ -31,6 +31,7 @@ class Trace:
         self.t0 = time.time()
         self.question_chars = question_chars
         self.outcome = "running"
+        self.mode = "briefing"
         self.duration_ms = 0
         self.agents: dict[str, dict] = {}
         self.guardrails: Counter = Counter()
@@ -51,7 +52,7 @@ class Trace:
         for call in event.get_function_calls() or []:
             agent["tools"].append(call.name)
         for resp in event.get_function_responses() or []:
-            if resp.name == "historical_range_48h" and isinstance(resp.response, dict):
+            if resp.name in ("historical_range_48h", "current_brent_range") and isinstance(resp.response, dict):
                 self.tool_range = resp.response
         self._last_event_ts = max(self._last_event_ts, ts)
 
@@ -68,6 +69,7 @@ class Trace:
             "id": self.id,
             "at": time.strftime("%H:%M:%S", time.gmtime(self.t0)),
             "outcome": self.outcome,
+            "mode": self.mode,
             "duration_ms": self.duration_ms,
             "question_chars": self.question_chars,
             "spans": spans,
@@ -150,6 +152,7 @@ def summary() -> dict:
         counters = dict(_counters)
     ok = [t for t in traces if t.outcome == "ok"]
     latencies = [t.duration_ms for t in ok]
+    briefings = [t for t in ok if t.mode == "briefing"]
     graded = [t for t in ok if t.checks.get("range_quoted") is not None]
     return {
         "uptime_s": round(time.time() - STARTED_AT),
@@ -161,7 +164,8 @@ def summary() -> dict:
         "range_quoted_rate": (
             round(100 * sum(1 for t in graded if t.checks["range_quoted"]) / len(graded), 1) if graded else None),
         "disclaimer_rate": (
-            round(100 * sum(1 for t in ok if t.checks.get("disclaimer")) / len(ok), 1) if ok else None),
+            round(100 * sum(1 for t in briefings if t.checks.get("disclaimer")) / len(briefings), 1)
+            if briefings else None),
         "off_range_runs": sum(1 for t in graded if t.checks.get("off_range_figures")),
     }
 

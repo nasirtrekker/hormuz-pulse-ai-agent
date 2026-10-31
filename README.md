@@ -34,7 +34,7 @@ Built by **Nasir Uddin** ([@nasirtrekker](https://github.com/nasirtrekker)).
 | 1️⃣ | Open the live link | Latest Brent close, 48-hour low, median and high | 🟢 none |
 | 2️⃣ | Type a price in "Try your own Brent price" and click **Recalculate range** | Range recomputed around your price | 🟢 none |
 | 3️⃣ | Read "How reliable is this range?" | Backtest: how often real outcomes fell inside the range | 🟢 none |
-| 4️⃣ | Type a question in **Ask the research team**, click **Ask** (1 to 3 minutes) | A briefing from the agents plus answer checks (guardrails passed, quotes the computed range, disclaimer) | 🟡 Vertex AI, only when clicked |
+| 4️⃣ | Chat in **Chat with the research team**: say hi, ask follow-ups, or ask to *predict* (a fresh briefing takes 1 to 3 minutes) | Chat replies in seconds; briefings add answer checks (guardrails passed, quotes the computed range, disclaimer) | 🟡 Vertex AI, only when you send a message |
 | 5️⃣ | Open **Agent ops** | Live traces, latency, guardrail counts, evaluation scores | 🟢 none |
 
 Cloud charges happen only when someone clicks **Ask**. Cloud Run scales to zero
@@ -42,6 +42,16 @@ when idle.
 
 Read the range as a risk band, not a price target: the backtest shows the band is
 calibrated but no method beat "the price stays the same" for direction.
+
+## 💬 Chat, memory and prompts
+
+| Question | Answer |
+|---|---|
+| Does it remember the conversation? | Yes. The browser sends a random session id; the server keeps an ADK session (messages and the latest briefing) in memory for 1 hour, up to 30 turns. |
+| Where is the dialogue saved? | Server RAM only, per Cloud Run instance (session affinity keeps a visitor on one instance). The browser keeps the visible transcript in `sessionStorage`. Nothing is written to a database or disk, and "New chat" clears it. A restart loses it. |
+| How does it pick chat or research? | `route()` in `app/main.py`: words like *predict, forecast, brief, research, how risky, what is driving* start the full research pipeline; everything else (greetings, "why is the range so wide?") goes to `chat_agent`. |
+| Where are the system prompts? | In `hormuz/agent.py`: the `instruction=` of each agent (`news_agent`, `sentiment_agent`, `data_agent`, `predictor_agent`, `critic_agent`, `chat_agent`). The user prompt is the message you type; web text is passed to later agents as untrusted data. |
+| Is it RAG? Does it use embeddings? | No. There is no vector database and no embedding model. Facts come from Google Search grounding in Gemini and from a Python tool over public FRED data. The research notes and latest briefing are placed in the chat prompt as session state. |
 
 ## 🏗️ How the app was built
 
@@ -107,7 +117,7 @@ flowchart LR
 
 | File | Job |
 |---|---|
-| `app/main.py` | FastAPI service: endpoints, data refresh, backtest cache, rate limiting, traces |
+| `app/main.py` | FastAPI service: endpoints, router, chat sessions, data refresh, backtest cache, rate limiting, traces |
 | `app/static/index.html`, `app.js`, `style.css` | the dashboard (canvas chart, ask box, answer checks), no external libraries |
 | `app/static/ops.html`, `ops.js` | the Grafana-style ops page: stat panels, latency bars, guardrail counts, trace Gantt, evaluation |
 | `hormuz/market_data.py` | loads and refreshes Brent and OVX series from FRED |
@@ -158,7 +168,7 @@ model calls:
 
 | Job and step | What it checks | Result |
 |---|---|---|
-| test: unit tests | 57 tests: range model, backtest, API, telemetry, guardrails, agent wiring | ✅ |
+| test: unit tests | 59 tests: range model, backtest, API, telemetry, guardrails, agent wiring | ✅ |
 | test: attack corpus | known injection, PII and secret strings stay blocked or redacted | ✅ |
 | test: `adk eval` | ADK evaluation in `evals/guardrails.evalset.json` | ✅ |
 | test: build inputs, script syntax | Dockerfile and requirements exist, shell scripts parse | ✅ |

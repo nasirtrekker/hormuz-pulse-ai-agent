@@ -68,7 +68,7 @@ class ApiTests(unittest.TestCase):
         run.assert_not_called()
 
     def test_brief_failure_hides_internals(self):
-        async def boom(_, __):
+        async def boom(*_):
             raise RuntimeError("secret internal detail")
         main.limiter = main._Limiter()
         with mock.patch.object(main, "_run_agents", boom):
@@ -80,14 +80,26 @@ class ApiTests(unittest.TestCase):
         from hormuz import telemetry
         telemetry.reset()
 
-        async def fake(question, trace):
+        async def fake(question, trace, session_id=None):
             trace.tool_range = {"low": 114.29, "median": 123.51, "high": 132.01}
-            return "Likely $114.29 to $132.01. Educational only, not financial advice."
+            return "Likely $114.29 to $132.01. Educational only, not financial advice.", "abcdef123456"
         main.limiter = main._Limiter()
         with mock.patch.object(main, "_run_agents", fake):
             r = self.client.post("/api/brief", json={}).json()
         self.assertTrue(r["checks"]["range_quoted"])
         self.assertEqual(telemetry.summary()["outcomes"]["ok"], 1)
+
+    def test_router_sends_greetings_to_chat_and_forecasts_to_pipeline(self):
+        self.assertEqual(main.route("hi"), "chat")
+        self.assertEqual(main.route("why is the range that wide?"), "chat")
+        self.assertEqual(main.route("Predict Brent for the next 48 hours."), "briefing")
+        self.assertEqual(main.route("How risky is the Strait of Hormuz right now?"), "briefing")
+
+    def test_chat_does_not_use_briefing_allowance(self):
+        limiter = main._Limiter()
+        for _ in range(main.BRIEFS_PER_IP_PER_HOUR + 3):
+            self.assertIsNone(limiter.allow("1.2.3.4", "chat"))
+        self.assertIsNone(limiter.allow("1.2.3.4", "briefing"))
 
     def test_rate_limit(self):
         limiter = main._Limiter()

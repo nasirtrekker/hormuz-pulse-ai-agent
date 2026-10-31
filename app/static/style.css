@@ -35,6 +35,13 @@
   th { color:var(--mute); font-weight:500; font-size:.85rem; } tr:last-child td { border-bottom:0; }
   .answer { white-space:pre-wrap; word-wrap:break-word; margin:16px 0 0; padding:16px; border-radius:12px; background:rgba(255,255,255,.03); border:1px solid var(--line); display:none; }
   .answer.show { display:block; }
+  .chatlog { display:flex; flex-direction:column; gap:10px; max-height:520px; overflow-y:auto; margin:12px 0; }
+  .chatlog:empty { display:none; }
+  .msg { padding:12px 14px; border-radius:14px; border:1px solid var(--line); white-space:pre-wrap; word-wrap:break-word; max-width:92%; }
+  .msg.user { align-self:flex-end; background:rgba(56,189,248,.12); border-color:rgba(56,189,248,.35); }
+  .msg.bot { align-self:flex-start; background:rgba(255,255,255,.03); }
+  .msg.err { color:var(--down); }
+  .msg .checks { margin-top:10px; }
   .spin { display:inline-block; width:14px; height:14px; border:2px solid var(--line); border-top-color:var(--acc); border-radius:50%; animation:r .8s linear infinite; vertical-align:-2px; margin-right:8px; }
   @keyframes r { to { transform:rotate(360deg); } }
   .note { color:var(--mute); font-size:.85rem; } .err { color:var(--down); }

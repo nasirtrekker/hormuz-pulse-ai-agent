@@ -100,6 +100,7 @@ gcloud run deploy "$SERVICE" \
   --source "$SCRIPT_DIR" \
   --service-account "$RUNTIME_SA" \
   --max-instances 3 \
+  --session-affinity \
   --concurrency 20 \
   --timeout 300 \
   --memory 1Gi \
