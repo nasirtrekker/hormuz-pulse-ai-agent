@@ -18,7 +18,8 @@ concurrency:
 
 jobs:
   deploy:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    # Skips (instead of failing) until scripts/setup_cicd.sh has created the repository variables.
+    if: vars.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: production

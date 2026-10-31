@@ -21,7 +21,7 @@ for a live briefing on the Strait of Hormuz.
 
 ![Dashboard](docs/dashboard.png)
 
-### 2. Agent ops (`/ops`): a Grafana-style page for traces and evaluation
+### 2. Agent ops (`/ops`): traces and evaluation
 
 ![Agent ops](docs/ops.png)
 
@@ -127,7 +127,54 @@ flowchart LR
 | 🪪 **Workload Identity Federation** | Lets GitHub Actions deploy with no stored keys | free |
 | 📜 **Cloud Logging** (automatic) | Collects request and error logs from Cloud Run; logs hold no question text | free tier, then per GB |
 
-Not used: databases (chat memory is in RAM), Cloud Storage for data, embeddings or Vertex AI Search.
+Chat memory is held in the Cloud Run instance's RAM, so no database is used.
+
+### Google Cloud architecture
+
+```mermaid
+flowchart TB
+    U([Visitor browser]) -->|HTTPS| CR
+    GH([GitHub Actions]) -->|keyless, Workload Identity Federation| WIF[IAM Workload Identity Pool]
+    WIF -->|impersonates deployer service account| CB[Cloud Build]
+    CB -->|builds image from Dockerfile| AR[(Artifact Registry)]
+    AR -->|new revision| CR
+
+    subgraph PROJECT[Google Cloud project: hormuz-pulse-agent]
+        CR[Cloud Run service hormuz-pulse<br/>FastAPI: app/main.py<br/>runtime service account]
+        CR -->|aiplatform.user| VX[Vertex AI<br/>Gemini models]
+        VX --- GS[Grounding with Google Search]
+        CR -.optional modelarmor.user.-> MA[Model Armor<br/>input and output templates]
+        CR -->|stdout logs, no question text| LG[Cloud Logging]
+        CR --- MEM[(Instance RAM<br/>chat sessions, traces)]
+    end
+
+    CR -->|reads at most once a day| FRED[(FRED CSV: Brent, OVX)]
+    CR -->|latest futures close| FUT[(Public Brent futures feed)]
+```
+
+| Arrow | Code that triggers it |
+|---|---|
+| Browser to Cloud Run | `app/main.py` serves `/`, `/ops` and the `/api/*` endpoints |
+| Cloud Run to Vertex AI | ADK `Runner` in `app/main.py` runs the agents in `hormuz/agent.py`; credentials come from the runtime service account, no key files |
+| Vertex AI to Google Search | `google_search` tool on the three research agents in `hormuz/agent.py` |
+| Cloud Run to Model Armor | `hormuz/model_armor.py`, called by `hormuz/guardrails.py` when `ENABLE_MODEL_ARMOR=true` |
+| Cloud Run to FRED and futures feed | `hormuz/market_data.py` and `_Data.refresh_if_stale` in `app/main.py` |
+| GitHub to Cloud Build to Cloud Run | `.github/workflows/deploy.yml` runs `deploy.sh`, which calls `gcloud run deploy --source` |
+
+## 🔬 Code walkthrough: what happens to one message
+
+| Step | Code | What it does |
+|---|---|---|
+| 1 | `brief()` in `app/main.py` | receives the message and session id, starts a trace (`telemetry.begin`) |
+| 2 | `guardrails.check_input` | blocks injection phrases, personal data, control characters and over-long input before any model call |
+| 3 | `limiter.allow` | per-IP and daily limits; chat and briefings have separate allowances |
+| 4 | `route()` | chooses `chat_agent` or the research pipeline from the wording |
+| 5 | `_ensure_session`, `_run_agents` | finds or creates the visitor's ADK session (the memory) and streams agent events into the trace |
+| 6 | `news_agent`, `sentiment_agent`, `data_agent` | search the web in parallel; `research_guard` cleans and validates what they return |
+| 7 | `predictor_agent` | calls `current_brent_range` (futures close plus `stat_model.forecast_blend`) and `predict_48h` |
+| 8 | `critic_agent` or `chat_agent` | writes the answer, copying the range from the tool; `egress_guard` redacts secrets and adds the disclaimer |
+| 9 | `telemetry.check_answer` | checks the answer quotes the computed range, flags off-range prices, checks the disclaimer |
+| 10 | `/ops` (`ops.js`) | reads `/api/ops` and `/api/traces` and draws the panels |
 
 ## 🗂️ What each file does
 
@@ -135,7 +182,7 @@ Not used: databases (chat memory is in RAM), Cloud Storage for data, embeddings 
 |---|---|
 | `app/main.py` | FastAPI service: endpoints, router, chat sessions, data refresh, backtest cache, rate limiting, traces |
 | `app/static/index.html`, `app.js`, `style.css` | the dashboard (canvas chart, ask box, answer checks), no external libraries |
-| `app/static/ops.html`, `ops.js` | the Grafana-style ops page: stat panels, latency bars, guardrail counts, trace Gantt, evaluation |
+| `app/static/ops.html`, `ops.js` | the ops page: stat panels, latency bars, guardrail counts, per-agent trace timeline, evaluation |
 | `hormuz/market_data.py` | loads and refreshes Brent and OVX series from FRED |
 | `hormuz/stat_model.py` | computes the 48-hour range from standardised historical returns |
 | `hormuz/backtest.py` | walk-forward test of that range |

@@ -34,12 +34,13 @@ const GUARD_LABELS = {
 
 function renderSummary(s) {
   const ok = s.outcomes.ok || 0;
-  const rate = s.runs ? Math.round((100 * ok) / s.runs) : null;
   const blocked = s.outcomes.blocked || 0;
+  const accepted = s.runs - blocked;
+  const rate = accepted ? Math.round((100 * ok) / accepted) : null;
   const fmtMs = (v) => (v == null ? "n/a" : (v / 1000).toFixed(1) + " s");
   $("panels").replaceChildren(
     panel("🤖 Agent runs", s.runs, "since instance start", "blue"),
-    panel("✅ Completed", rate == null ? "n/a" : rate + "%", `${ok} of ${s.runs} runs`, rate == null ? "" : rate >= 80 ? "green" : "amber"),
+    panel("✅ Completed", rate == null ? "n/a" : rate + "%", `${ok} of ${accepted} accepted runs (blocked ones excluded)`, rate == null ? "" : rate >= 80 ? "green" : "amber"),
     panel("🚫 Blocked", blocked, "stopped by guardrails", blocked ? "red" : ""),
     panel("⏱️ Latency p50 / p95", `${fmtMs(s.latency_ms.p50)} / ${fmtMs(s.latency_ms.p95)}`, "completed runs"),
     panel("🧮 Quotes computed range", s.range_quoted_rate == null ? "n/a" : s.range_quoted_rate + "%", `${s.graded_runs} graded answers`, s.range_quoted_rate == null ? "" : s.range_quoted_rate >= 90 ? "green" : "amber"),
