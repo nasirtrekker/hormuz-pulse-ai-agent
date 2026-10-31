@@ -1,1 +1,2 @@
 google-adk==1.18.0
+google-cloud-modelarmor==0.7.4

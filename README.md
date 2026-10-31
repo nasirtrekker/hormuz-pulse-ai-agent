@@ -45,6 +45,33 @@ deterministic code, not prompts, and are covered by `tests/test_guardrails.py`.
 | Tool output | `after_tool_callback`, `on_tool_error_callback` on `predictor_agent` | Rejects non-finite or implausible results (forecast outside 50%..150% of the input price) and reports invalid inputs to the model instead of crashing the run. |
 | Egress | `after_model_callback` on every LLM agent | Redacts API keys, tokens and private keys, caps output length, and appends the not-financial-advice disclaimer to the final briefing if missing. |
 
+### Model Armor (managed layer)
+
+`hormuz/model_armor.py` adds Google Cloud Model Armor on top of the code checks.
+It is off until `MODEL_ARMOR_LOCATION` and the template names are set.
+
+| Template | Applied to | Filters |
+|---|---|---|
+| `hormuz-input` | user prompt and untrusted web research | prompt injection and jailbreak (default `LOW_AND_ABOVE`), sensitive data (basic), malicious URLs, responsible AI (`MEDIUM_AND_ABOVE`) |
+| `hormuz-output` | final briefing from the critic | sensitive data, malicious URLs, responsible AI |
+
+Separate input and output templates keep each side tunable and traceable.
+Confidence: `HIGH` = fewest false positives, `LOW_AND_ABOVE` = most detections
+and most false positives. Tune with `MA_PI_CONFIDENCE` and `MA_RAI_CONFIDENCE`.
+If the service errors the request is blocked; set `MODEL_ARMOR_FAIL_OPEN=true`
+to allow it instead.
+
+```bash
+gcloud services enable modelarmor.googleapis.com --project hormuz-pulse-agent
+.venv/bin/python scripts/create_model_armor_templates.py hormuz-pulse-agent us-central1
+# then add to .env: MODEL_ARMOR_LOCATION=us-central1
+#   MODEL_ARMOR_INPUT_TEMPLATE=hormuz-input  MODEL_ARMOR_OUTPUT_TEMPLATE=hormuz-output
+```
+
+The agent's own identity needs `roles/modelarmor.user` (`deploy.sh` grants it to
+the Cloud Run service account); the script needs `roles/modelarmor.admin`.
+Model Armor has not been exercised against the live service from this repo.
+
 These are best-effort filters: pattern matching cannot catch every prompt
 injection or leak, so keep the service private and the runtime service account
 limited to `roles/aiplatform.user`.

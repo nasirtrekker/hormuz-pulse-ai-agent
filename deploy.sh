@@ -5,6 +5,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT="${1:?Usage: ./deploy.sh PROJECT_ID [REGION]}"
 REGION="${2:-europe-west2}"
 VERTEX_LOCATION="${VERTEX_LOCATION:-global}"
+MODEL_ARMOR_LOCATION="${MODEL_ARMOR_LOCATION:-us-central1}"
 SERVICE="hormuz-pulse"
 RUNTIME_SA_NAME="hormuz-pulse-runtime"
 PUBLIC_SERVICE="${PUBLIC_SERVICE:-false}"
@@ -48,6 +49,7 @@ gcloud services enable \
   artifactregistry.googleapis.com \
   iam.googleapis.com \
   aiplatform.googleapis.com \
+  modelarmor.googleapis.com \
   --project "$PROJECT"
 
 RUNTIME_SA="${RUNTIME_SA_NAME}@${PROJECT}.iam.gserviceaccount.com"
@@ -63,6 +65,11 @@ fi
 gcloud projects add-iam-policy-binding "$PROJECT" \
   --member="serviceAccount:$RUNTIME_SA" \
   --role="roles/aiplatform.user" \
+  --condition=None >/dev/null
+
+gcloud projects add-iam-policy-binding "$PROJECT" \
+  --member="serviceAccount:$RUNTIME_SA" \
+  --role="roles/modelarmor.user" \
   --condition=None >/dev/null
 
 if [[ "$PUBLIC_SERVICE" == "true" ]]; then
@@ -87,7 +94,7 @@ gcloud run services update "$SERVICE" \
   --project "$PROJECT" \
   --region "$REGION" \
   --service-account "$RUNTIME_SA" \
-  --update-env-vars "GOOGLE_GENAI_USE_VERTEXAI=TRUE,GOOGLE_CLOUD_PROJECT=$PROJECT,GOOGLE_CLOUD_LOCATION=$VERTEX_LOCATION"
+  --update-env-vars "GOOGLE_GENAI_USE_VERTEXAI=TRUE,GOOGLE_CLOUD_PROJECT=$PROJECT,GOOGLE_CLOUD_LOCATION=$VERTEX_LOCATION,MODEL_ARMOR_LOCATION=$MODEL_ARMOR_LOCATION,MODEL_ARMOR_INPUT_TEMPLATE=hormuz-input,MODEL_ARMOR_OUTPUT_TEMPLATE=hormuz-output"
 
 URL="$(gcloud run services describe "$SERVICE" \
   --project "$PROJECT" \

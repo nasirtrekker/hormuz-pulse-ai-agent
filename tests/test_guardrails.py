@@ -136,3 +136,48 @@ class EgressTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ModelArmorTests(unittest.TestCase):
+    def setUp(self):
+        from unittest import mock
+        self.mock = mock
+        env = {"MODEL_ARMOR_LOCATION": "us-central1", "GOOGLE_CLOUD_PROJECT": "p",
+               "MODEL_ARMOR_INPUT_TEMPLATE": "hormuz-input",
+               "MODEL_ARMOR_OUTPUT_TEMPLATE": "hormuz-output"}
+        patcher = mock.patch.dict("os.environ", env)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _response(self, matched):
+        from google.cloud import modelarmor_v1 as ma
+        state = ma.FilterMatchState.MATCH_FOUND if matched else ma.FilterMatchState.NO_MATCH_FOUND
+        return ma.SanitizeUserPromptResponse(sanitization_result={"filter_match_state": state})
+
+    def test_disabled_without_config(self):
+        from hormuz import model_armor
+        with self.mock.patch.dict("os.environ", {"MODEL_ARMOR_LOCATION": ""}):
+            self.assertIsNone(model_armor.screen("input", "hello"))
+
+    def test_blocks_on_match(self):
+        from hormuz import model_armor
+        client = self.mock.Mock()
+        client.sanitize_user_prompt.return_value = self._response(True)
+        with self.mock.patch.object(model_armor, "_get_client", return_value=client):
+            self.assertIn("Model Armor flagged", model_armor.screen("input", "hi"))
+
+    def test_passes_on_no_match(self):
+        from hormuz import model_armor
+        client = self.mock.Mock()
+        client.sanitize_user_prompt.return_value = self._response(False)
+        with self.mock.patch.object(model_armor, "_get_client", return_value=client):
+            self.assertIsNone(model_armor.screen("input", "hi"))
+
+    def test_fails_closed_then_open(self):
+        from hormuz import model_armor
+        client = self.mock.Mock()
+        client.sanitize_user_prompt.side_effect = RuntimeError("down")
+        with self.mock.patch.object(model_armor, "_get_client", return_value=client):
+            self.assertIn("unavailable", model_armor.screen("input", "hi"))
+            with self.mock.patch.dict("os.environ", {"MODEL_ARMOR_FAIL_OPEN": "true"}):
+                self.assertIsNone(model_armor.screen("input", "hi"))

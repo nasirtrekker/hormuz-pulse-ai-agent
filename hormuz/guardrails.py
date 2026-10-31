@@ -12,6 +12,8 @@ from typing import Any, Optional
 
 from google.genai import types
 
+from . import model_armor
+
 MAX_INPUT_CHARS = 1000
 MAX_FIELD_CHARS = 6000
 MAX_OUTPUT_CHARS = 12000
@@ -54,7 +56,8 @@ def ingress_guard(callback_context: Any) -> Optional[types.Content]:
     if any(p.inline_data or p.file_data for p in parts):
         reason = "attachments are not supported"
     else:
-        reason = check_input(" ".join(p.text for p in parts if p.text))
+        text = " ".join(p.text for p in parts if p.text)
+        reason = check_input(text) or model_armor.screen("input", text)
     if reason is None:
         return None
     return types.Content(
@@ -108,7 +111,11 @@ def sanitize_research(key: str, value: Any) -> str:
 def research_guard(key: str):
     """after_agent_callback factory for the agents that write `key` into session state."""
     def callback(callback_context: Any) -> None:
-        callback_context.state[key] = sanitize_research(key, callback_context.state.get(key))
+        cleaned = sanitize_research(key, callback_context.state.get(key))
+        # Web-derived text is untrusted: screen it for indirect prompt injection.
+        if model_armor.screen("input", cleaned):
+            cleaned = "VALIDATION FAILED: content was blocked by the safety filter."
+        callback_context.state[key] = cleaned
     return callback
 
 
@@ -159,6 +166,12 @@ def egress_guard(require_disclaimer: bool = False):
                 p = types.Part(text=redact_secrets(p.text)[:MAX_OUTPUT_CHARS])
             parts.append(p)
         texts = [p.text for p in parts if p.text and not p.thought]
+        if require_disclaimer and texts:
+            reason = model_armor.screen("output", " ".join(texts))
+            if reason:
+                blocked = types.Part(text=f"Response withheld: {reason}. {DISCLAIMER}")
+                return llm_response.model_copy(
+                    update={"content": types.Content(role=content.role, parts=[blocked])})
         if require_disclaimer and texts and "not financial advice" not in " ".join(texts).lower():
             parts.append(types.Part(text=f"\n\n{DISCLAIMER}"))
         return llm_response.model_copy(
