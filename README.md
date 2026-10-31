@@ -1,24 +1,95 @@
 # Hormuz Pulse
 
-Hormuz Pulse is a web app for forecasters, investors and the public. Open the
-link and it shows real Brent crude history from FRED, a data-driven 48-hour price
-range with its backtested reliability, and a button that runs a Gemini research
-agent team (Google ADK) for a live briefing on the Strait of Hormuz.
+A web app for forecasters, investors and the public. Open the link and you see
+real Brent crude history, a data-driven 48-hour price range with its backtested
+reliability, and a button that runs a team of Gemini research agents (Google ADK)
+for a live briefing on the Strait of Hormuz.
 
-| Part | Where | Notes |
+**Live app:** `<PUBLIC_URL>` (printed by `./deploy.sh` at the end of a deploy; replace
+this placeholder with that URL once deployed).
+
+![Dashboard](docs/dashboard.png)
+
+## What you see and how to use it
+
+| Dashboard section | What it does | Needs cloud? |
 |---|---|---|
-| Web service (FastAPI) | `app/main.py`, `app/static/` | dashboard, JSON API, rate limits, security headers |
-| Range model and backtest | `hormuz/stat_model.py`, `hormuz/backtest.py` | public data, no API key |
-| Agent team | `hormuz/agent.py` | ADK, Gemini on Vertex AI, Google Search |
-| Guardrails | `hormuz/guardrails.py`, `hormuz/model_armor.py` | see below |
+| Top numbers | Latest Brent close, 48-hour low (10th percentile), median, high (90th percentile), and the volatility used | no |
+| Chart | Last 260 trading days with the shaded 80% range two trading days ahead | no |
+| Try your own starting price | Type a price (10 to 500 USD) and click **Recalculate range**; the range is recomputed around it | no |
+| How reliable is this range? | Walk-forward backtest: how often real outcomes fell inside the range | no |
+| Does news predict the price? | Results of the model comparison, including the news index test | no |
+| Live research briefing | Click **Generate briefing**. Agents search current news and sentiment, a critic checks the result, and the answer is screened by guardrails. Takes 1 to 3 minutes | yes (Vertex AI) |
 
-API: `GET /api/history`, `GET /api/forecast?price=`, `GET /api/backtest`, `GET /api/evidence`,
-`POST /api/brief`, `GET /healthz`. The dashboard works without any cloud
-credentials; only the briefing needs Vertex AI. Public use is protected by
-per-IP and daily briefing limits (`BRIEFS_PER_IP_PER_HOUR`, `BRIEFS_PER_DAY`,
-per instance), the guardrails, a 300 s timeout and at most 3 instances.
+Read the range as a risk band, not a price target: the backtest shows the band is
+calibrated but no method beat "the price stays the same" for direction.
 
-## What the agent's overlay is
+## How the app is built
+
+```mermaid
+flowchart LR
+    User([Browser]) -->|HTTPS| CR
+    subgraph GCP[Google Cloud, project hormuz-pulse-agent]
+        CR[Cloud Run: FastAPI app<br/>app/main.py]
+        CR --> RM[Range model<br/>stat_model.py, backtest.py]
+        CR --> AG[ADK agent team<br/>agent.py]
+        AG --> GR[Guardrails<br/>guardrails.py]
+        GR -.optional.-> MA[Model Armor<br/>model_armor.py]
+        AG --> VX[Vertex AI Gemini<br/>+ Google Search grounding]
+    end
+    RM --> DS[(Public data snapshots<br/>FRED Brent, OVX, VIX, USD, GPR)]
+    DS -. refreshed at most daily .-> FRED[FRED]
+    GH[GitHub Actions] -->|keyless deploy, Workload Identity| CR
+```
+
+Cloud resources are billed only when someone uses the app: Cloud Run scales to
+zero when idle, and Vertex AI is called only when a visitor clicks "Generate
+briefing". The dashboard itself uses no paid model calls.
+
+| Tool | Used for |
+|---|---|
+| FastAPI + uvicorn | web server, JSON API, static dashboard, rate limits, security headers |
+| Google ADK | agent team (parallel research, predictor, critic) |
+| Gemini on Vertex AI, Google Search grounding | news, sentiment and latest-price research |
+| Model Armor (optional) | managed prompt-injection, sensitive-data and responsible-AI filters |
+| FRED, Caldara-Iacoviello GPR | public data for the range model and experiments |
+| scikit-learn (dev only) | the model comparison in `scripts/experiment.py` |
+| Docker, Cloud Run, Cloud Build | container build and hosting |
+| GitHub Actions, Workload Identity Federation | CI and keyless deploy |
+
+## What each file does
+
+| File | Job |
+|---|---|
+| `app/main.py` | FastAPI service: endpoints, data refresh and backtest cache, rate limiting |
+| `app/static/index.html`, `app.js` | the dashboard (canvas chart and tables), no external libraries |
+| `hormuz/market_data.py` | loads and refreshes Brent and OVX series from FRED |
+| `hormuz/stat_model.py` | computes the 48-hour range from standardised historical returns |
+| `hormuz/backtest.py` | walk-forward test of that range |
+| `hormuz/agent.py` | ADK pipeline and the `historical_range_48h` tool |
+| `hormuz/guardrails.py`, `hormuz/model_armor.py` | ingress, tool-output and egress checks |
+| `scripts/experiment.py` | compares models and writes `hormuz/data/experiment_results.json` |
+| `scripts/backtest.py` | prints the backtest as JSON |
+| `deploy.sh`, `Dockerfile`, `scripts/setup_cicd.sh`, `.github/workflows/` | deployment and CI/CD |
+| `tests/`, `evals/` | unit tests, attack-corpus regression, ADK eval |
+
+API: `GET /api/history`, `GET /api/forecast?price=`, `GET /api/backtest`,
+`GET /api/evidence`, `POST /api/brief`, `GET /healthz`. Public use is protected by
+per-IP and daily briefing limits (`BRIEFS_PER_IP_PER_HOUR`, `BRIEFS_PER_DAY`, per
+instance), the guardrails, a 300 s timeout and at most 3 instances.
+
+## Quick start
+
+```bash
+uv venv --python 3.12 .venv && uv pip install -r requirements.txt -r requirements-dev.txt
+cp .env.example .env            # set GOOGLE_CLOUD_PROJECT
+.venv/bin/uvicorn app.main:app --port 8080     # open http://localhost:8080
+.venv/bin/python -m unittest discover -s tests
+```
+
+The dashboard needs no credentials. For the briefing run
+`gcloud auth application-default login` and enable `aiplatform.googleapis.com`.
+Deploy with `PUBLIC_SERVICE=true ./deploy.sh <project-id>`.
 
 ## Multi-agent workflow
 
@@ -133,7 +204,7 @@ Findings, stated plainly:
 
 The same results are served at `/api/evidence` and shown in the dashboard.
 
-## Architecture
+## Agent pipeline and guardrails
 
 ```mermaid
 flowchart TD
@@ -144,15 +215,15 @@ flowchart TD
         N[news] ~~~ S[sentiment] ~~~ M[market data]
     end
     P --> RG[Research guard: sanitize, range-check, Model Armor input template]
-    RG --> PR[Predictor: heuristic tool + tool-output guard]
+    RG --> PR[Predictor: data-driven range tool + labelled scenario overlay, tool-output guard]
     PR --> C[Critic]
     C --> E[Egress guard: redact, disclaimer, Model Armor output template]
     E --> O[Briefing]
 ```
 
 The pipeline is an ADK `SequentialAgent` in `hormuz/agent.py`. Agents share state
-through `output_key` and `{placeholders}`. The forecast is a fixed formula, not
-an ML model; Gemini only researches and critiques.
+through `output_key` and `{placeholders}`. The range comes from the statistical model above; the scenario overlay is a
+labelled fixed formula, not an ML model. Gemini only researches and critiques.
 
 ## CI/CD and operations
 
