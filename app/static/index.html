@@ -39,12 +39,31 @@
   .spin { display:inline-block; width:14px; height:14px; border:2px solid var(--line); border-top-color:var(--acc); border-radius:50%; animation:r .8s linear infinite; vertical-align:-2px; margin-right:8px; }
   @keyframes r { to { transform:rotate(360deg); } }
   .note { color:var(--mute); font-size:.85rem; } .err { color:var(--down); }
+  .nav { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+  .brand { font-weight:700; letter-spacing:.02em; display:flex; align-items:center; gap:10px; }
+  .logo { width:28px; height:28px; border-radius:8px; background:linear-gradient(135deg,var(--acc),var(--acc2)); display:grid; place-items:center; color:#05101c; font-size:.9rem; }
+  .gh { display:inline-flex; align-items:center; gap:8px; color:var(--text); text-decoration:none; border:1px solid var(--line); border-radius:999px; padding:6px 14px; background:rgba(255,255,255,.04); font-size:.88rem; transition:border-color .15s, background .15s; }
+  .gh:hover { border-color:var(--acc); background:rgba(56,189,248,.1); }
+  .steps { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; }
+  .step { padding:16px; border-radius:12px; border:1px solid var(--line); background:rgba(255,255,255,.03); }
+  .step b { display:block; margin-bottom:4px; } .step span { color:var(--mute); font-size:.9rem; }
+  .step em { font-style:normal; display:inline-grid; place-items:center; width:26px; height:26px; border-radius:50%; margin-bottom:8px; background:linear-gradient(135deg,var(--acc),var(--acc2)); color:#05101c; font-weight:700; }
+  .contact { display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+  .avatar { width:56px; height:56px; border-radius:50%; background:linear-gradient(135deg,var(--acc),var(--acc2)); display:grid; place-items:center; font-weight:800; color:#05101c; font-size:1.3rem; }
+  .contact h2 { margin:0; } .contact p { margin:2px 0 0; color:var(--mute); }
+  .card, .step { animation:up .5s ease both; } @keyframes up { from { opacity:0; transform:translateY(8px); } }
   footer { color:var(--mute); font-size:.8rem; margin-top:26px; }
   a { color:var(--acc); }
 </style>
 </head>
 <body>
 <main>
+  <nav class="nav">
+    <div class="brand"><span class="logo">H</span> Hormuz Pulse</div>
+    <a class="gh" href="https://github.com/nasirtrekker/hormuz-pulse-ai-agent" target="_blank" rel="noopener">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.08-2.7-1.08-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.71 1.22 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.65-.89-3.65-3.96 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.08-1.87 3.76-3.65 3.96.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+      View source on GitHub</a>
+  </nav>
   <header class="hero">
     <span class="badge"><i></i> Public data, backtested, no made-up numbers</span>
     <h1>Hormuz Pulse</h1>
@@ -95,6 +114,24 @@
     <h2>Does news predict the price? What we tested</h2>
     <table id="ev"><tr><td class="note">Loading experiment results…</td></tr></table>
     <p class="note" id="evnote"></p>
+  </section>
+
+  <section class="card">
+    <h2>How it works</h2>
+    <div class="steps">
+      <div class="step"><em>1</em><b>Public data</b><span>39 years of Brent prices and the oil options market (FRED).</span></div>
+      <div class="step"><em>2</em><b>Backtested range</b><span>A 48-hour low, median and high, checked against past outcomes.</span></div>
+      <div class="step"><em>3</em><b>AI research team</b><span>Gemini agents read current news and sentiment, and a critic checks them.</span></div>
+      <div class="step"><em>4</em><b>Guardrails</b><span>Inputs, tool outputs and answers are screened before you see them.</span></div>
+    </div>
+  </section>
+
+  <section class="card contact">
+    <div class="avatar">N</div>
+    <div>
+      <h2>Built by Nasir Uddin</h2>
+      <p>GitHub: <a href="https://github.com/nasirtrekker" target="_blank" rel="noopener">@nasirtrekker</a> &middot; <a href="https://github.com/nasirtrekker/hormuz-pulse-ai-agent" target="_blank" rel="noopener">github.com/nasirtrekker/hormuz-pulse-ai-agent</a></p>
+    </div>
   </section>
 
   <footer>Educational only, not financial advice. Data: FRED (Brent spot DCOILBRENTEU, CBOE crude oil volatility OVXCLS, VIX, dollar index) and the Caldara-Iacoviello Geopolitical Risk Index (daily, from newspaper coverage). Briefings use Google Search and Gemini, and may contain errors: check the cited sources.</footer>
