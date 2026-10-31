@@ -66,8 +66,8 @@
                 <mxCell id="pl" parent="1" style="text;html=1;fontSize=13;fontColor=#1D4ED8;sketch=1;fontFamily=Comic Sans MS;" value="ParallelAgent: collect" vertex="1">
                     <mxGeometry height="24" width="170" x="540" y="80" as="geometry"/>
                 </mxCell>
-                <mxCell id="rg" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#1D4ED8;fontColor=#1D4ED8;fontSize=12;sketch=1;fontFamily=Comic Sans MS;" value="Research guard&lt;br&gt;untrusted web text" vertex="1">
-                    <mxGeometry height="100" width="130" x="740" y="200" as="geometry"/>
+                <mxCell id="rg" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#1D4ED8;fontColor=#1D4ED8;fontSize=12;sketch=1;fontFamily=Comic Sans MS;" value="Research guard&lt;br&gt;(untrusted web text)" vertex="1">
+                    <mxGeometry height="130" width="190" x="715" y="185" as="geometry"/>
                 </mxCell>
                 <mxCell id="p" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#1D4ED8;fontColor=#1D4ED8;fontSize=14;sketch=1;fontFamily=Comic Sans MS;" value="predictor_agent&lt;br&gt;current_brent_range&lt;br&gt;predict_48h" vertex="1">
                     <mxGeometry height="100" width="170" x="900" y="200" as="geometry"/>
@@ -91,7 +91,7 @@
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
                 <mxCell id="e3" edge="1" parent="1" source="rt" style="endArrow=classic;strokeColor=#1D4ED8;strokeWidth=2;fontColor=#1D4ED8;sketch=1;fontFamily=Comic Sans MS;" target="n" value="predict, brief, research">
-                    <mxGeometry relative="1" as="geometry"/>
+                    <mxGeometry x="-0.2" y="-45" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
                 </mxCell>
                 <mxCell id="e4" edge="1" parent="1" source="rt" style="endArrow=classic;strokeColor=#1D4ED8;strokeWidth=2;fontColor=#1D4ED8;sketch=1;fontFamily=Comic Sans MS;" target="s">
                     <mxGeometry relative="1" as="geometry"/>
