@@ -81,6 +81,40 @@ protected by IAM authentication unless you set `PUBLIC_SERVICE=true`. Egress is
 left open because the agents must reach Vertex AI and Google Search; restricting
 it needs a VPC with Cloud NAT and is not configured here.
 
+## Prediction: data and method
+
+All market data is public and no API key is needed.
+
+| Item | Source | Used for |
+|---|---|---|
+| Brent daily spot, 1987 to 2026-10-27 (10,290 days) | FRED series `DCOILBRENTEU` (`hormuz/data/`, refreshed with `python -m hormuz.market_data`) | the 48-hour range |
+| Latest price, news, sentiment | Gemini with Google Search grounding, at request time | the starting price and the narrative |
+
+`hormuz/stat_model.py` builds the range: for every past day it measures the 2-day
+return relative to the previous 20 days' volatility, takes the 10th/50th/90th
+percentiles of those standardised returns from the data (no normal-distribution
+assumption), then scales them by today's volatility around the live price. The
+tool `historical_range_48h` in `hormuz/agent.py` exposes it to the predictor agent.
+
+Backtest (`python scripts/backtest.py 2015`, walk-forward, 600 forecasts, 2015 to 2026):
+
+| | Result |
+|---|---|
+| 80% range coverage, data-driven | 80.7% (target 80%) |
+| 80% range coverage, old fixed band | 75.5% |
+| Point error, no-change forecast | 2.70% |
+| Point error, momentum rule | 2.72% (no better than no-change) |
+
+So the range is calibrated on history, while the point forecast has no proven edge
+over "price stays the same". The sentiment and Hormuz-risk overlay (`predict_48h`) is
+kept only as a labelled scenario and is not validated. This is a statistical range,
+not a guarantee; real moves in a crisis can exceed history. Not trained: there is no
+neural or gradient-boosted model, because this backtest gave no reason to expect one
+to beat the baseline from price history alone.
+
+News volume and tone from GDELT could be added as features, but I have not verified
+access or tested whether they improve the backtest, so they are not included.
+
 ## Architecture
 
 ```mermaid

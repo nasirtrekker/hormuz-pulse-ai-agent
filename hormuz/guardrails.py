@@ -137,7 +137,10 @@ def tool_output_guard(tool: Any, args: dict, tool_context: Any, tool_response: A
         return {"error": f"{tool.name} returned an unexpected result type."}
     if not _numbers_ok(tool_response):
         return {"error": f"{tool.name} returned a non-finite number."}
-    forecast = tool_response.get("forecast_48h")
+    low, mid, high = (tool_response.get(k) for k in ("low", "median", "high"))
+    if None not in (low, mid, high) and not low <= mid <= high:
+        return {"error": f"{tool.name} returned an inconsistent range; discard it."}
+    forecast = tool_response.get("forecast_48h", mid)
     price = args.get("price")
     if isinstance(forecast, (int, float)) and isinstance(price, (int, float)) and price > 0:
         if not 0.5 * price <= forecast <= 1.5 * price:
