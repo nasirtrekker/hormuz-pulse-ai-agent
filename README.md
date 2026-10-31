@@ -15,8 +15,6 @@ for a live briefing on the Strait of Hormuz.
 
 ### 🌍 Live app: https://hormuz-pulse-2o4l63xkqq-nw.a.run.app
 
-Built by **Nasir Uddin** ([@nasirtrekker](https://github.com/nasirtrekker)).
-
 ## 🖥️ The two pages
 
 ### 1. Dashboard (`/`): simple, for everyone
@@ -114,6 +112,22 @@ flowchart LR
 | scikit-learn (dev only) | the model comparison in `scripts/experiment.py` |
 | Docker, Cloud Run, Cloud Build | container build and hosting |
 | GitHub Actions, Workload Identity Federation | CI and keyless deploy |
+
+## ☁️ Which Google Cloud service does what
+
+| Service | Job in this app | When it costs money |
+|---|---|---|
+| 🏃 **Cloud Run** | Hosts the FastAPI container at the public URL; scales to zero; up to 3 instances, 20 concurrent requests each, session affinity for chat | only while handling requests |
+| 🧠 **Vertex AI (Gemini)** | Runs the model behind every agent: research, predictor, critic and chat | only when a visitor sends a message |
+| 🔎 **Grounding with Google Search** | Lets the three research agents read current news, sentiment and prices | per grounded request, with Gemini |
+| 🛡️ **Model Armor** (optional) | Managed screening of questions and answers for injection and sensitive data, on top of the code guardrails | per screened text; off unless `ENABLE_MODEL_ARMOR=true` |
+| 🔨 **Cloud Build** | Builds the Docker image from source during `deploy.sh` | per build |
+| 📦 **Artifact Registry** | Stores the built container image | small storage fee |
+| 🔑 **IAM service accounts** | The runtime account has only `aiplatform.user` (+ `modelarmor.user`); a separate deployer account is used by CI | free |
+| 🪪 **Workload Identity Federation** | Lets GitHub Actions deploy with no stored keys | free |
+| 📜 **Cloud Logging** (automatic) | Collects request and error logs from Cloud Run; logs hold no question text | free tier, then per GB |
+
+Not used: databases (chat memory is in RAM), Cloud Storage for data, embeddings or Vertex AI Search.
 
 ## 🗂️ What each file does
 
