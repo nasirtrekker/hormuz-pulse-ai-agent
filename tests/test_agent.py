@@ -1,10 +1,26 @@
 import math
 import unittest
 
-from hormuz.agent import predict_48h
+from hormuz.agent import (
+    MODEL, chat_agent, collect, critic_agent, predict_48h, predictor_agent,
+)
 
 
 class Predict48hTests(unittest.TestCase):
+    def test_model_calls_have_bounded_generation_and_network_waits(self):
+        for agent in [*collect.sub_agents, predictor_agent, critic_agent, chat_agent]:
+            with self.subTest(agent=agent.name):
+                config = agent.generate_content_config
+                self.assertLessEqual(config.max_output_tokens, 2048)
+                self.assertEqual(config.http_options.timeout, 45000)
+                self.assertEqual(config.http_options.retry_options.attempts, 2)
+                self.assertEqual(config.http_options.retry_options.max_delay, 1)
+                self.assertIn(504, config.http_options.retry_options.http_status_codes)
+                if MODEL.startswith("gemini-3"):
+                    self.assertEqual(agent.planner.thinking_config.thinking_level, "LOW")
+                else:
+                    self.assertEqual(agent.planner.thinking_config.thinking_budget, 0)
+
     def test_base_case_returns_illustrative_scenario(self):
         result = predict_48h(100, 5, 0.5, "medium")
 

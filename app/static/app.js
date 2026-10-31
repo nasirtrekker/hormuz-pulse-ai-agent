@@ -157,12 +157,20 @@ chat.msgs.forEach((m) => bubble(m.role, m.text, m.r));
 
 async function send() {
   const input = $("question"), text = input.value.trim();
-  if (!text) return;
   const button = $("brief");
-  button.disabled = true; input.value = "";
+  if (!text || button.disabled) return;
+  button.disabled = true; $("newchat").disabled = true; input.value = "";
   bubble("user", text); chat.msgs.push({ role: "user", text });
   const wait = bubble("bot", ""); const spin = document.createElement("span"); spin.className = "spin";
-  wait.append(spin, "Thinking… a fresh briefing usually takes 30 to 90 seconds.");
+  const status = document.createElement("span");
+  const started = Date.now();
+  const updateStatus = () => {
+    const seconds = Math.floor((Date.now() - started) / 1000);
+    status.textContent = `Working… ${seconds}s elapsed. Fresh research takes longer than a chat reply.`;
+  };
+  updateStatus();
+  wait.append(spin, status);
+  const progress = setInterval(updateStatus, 1000);
   try {
     const r = await getJSON("/api/brief", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -173,7 +181,7 @@ async function send() {
     chat.msgs.push({ role: "bot", text: r.briefing, r: { blocked: r.blocked, checks: r.checks, trace_id: r.trace_id, mode: r.mode } });
   } catch (err) {
     wait.remove(); bubble("bot err", err.message);
-  } finally { save(); button.disabled = false; input.focus(); }
+  } finally { clearInterval(progress); save(); button.disabled = false; $("newchat").disabled = false; input.focus(); }
 }
 
 $("brief").addEventListener("click", send);

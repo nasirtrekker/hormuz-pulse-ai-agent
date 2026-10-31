@@ -13,12 +13,28 @@ import os
 
 from google.adk.agents import Agent, ParallelAgent, SequentialAgent
 from google.adk.tools import google_search
+from google.adk.planners import BuiltInPlanner
+from google.genai import types
 
 from . import guardrails, stat_model
 from . import market_data
 from .market_data import align_implied_vol, load_history, load_ovx
 
 MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
+PLANNER = BuiltInPlanner(thinking_config=(
+    types.ThinkingConfig(thinking_level="LOW") if MODEL.startswith("gemini-3")
+    else types.ThinkingConfig(thinking_budget=0)))
+
+
+def _generation_config(max_output_tokens: int) -> types.GenerateContentConfig:
+    return types.GenerateContentConfig(
+        max_output_tokens=max_output_tokens,
+        http_options=types.HttpOptions(
+            timeout=45000,
+            retry_options=types.HttpRetryOptions(
+                attempts=2, initial_delay=1, max_delay=1,
+                http_status_codes=[408, 429, 500, 502, 503, 504])),
+    )
 
 
 _HISTORY = None
@@ -117,27 +133,33 @@ def predict_48h(price: float, change_5d_pct: float, sentiment_score: float,
 
 news_agent = Agent(
     name="news_agent", model=MODEL, tools=[google_search], output_key="news",
+    planner=PLANNER,
+    generate_content_config=_generation_config(1536),
     after_agent_callback=guardrails.research_guard("news"),
     after_model_callback=guardrails.egress_guard(),
     instruction=(
         "Search news from the last 48 hours on the Strait of Hormuz: tanker traffic, "
         "seizures or attacks, Iran/US tensions, naval activity, OPEC+ decisions. "
-        "Give 5-7 dated bullets with source names. Finish with exactly: "
+        "Give 3 concise dated bullets with source names. Finish with exactly: "
         "'RISK LEVEL: low|medium|high' and one reason."),
 )
 
 sentiment_agent = Agent(
     name="sentiment_agent", model=MODEL, tools=[google_search], output_key="sentiment",
+    planner=PLANNER,
+    generate_content_config=_generation_config(1536),
     after_agent_callback=guardrails.research_guard("sentiment"),
     after_model_callback=guardrails.egress_guard(),
     instruction=(
         "Search oil market commentary from the last 48 hours: analyst notes, market wraps, "
-        "bank forecasts, trader positioning. Label 5-7 items bullish/bearish/neutral for "
+        "bank forecasts, trader positioning. Label 3 concise items bullish/bearish/neutral for "
         "crude, with sources. Finish with exactly: 'SENTIMENT SCORE: <-1 to 1>'."),
 )
 
 data_agent = Agent(
     name="data_agent", model=MODEL, tools=[google_search], output_key="market",
+    planner=PLANNER,
+    generate_content_config=_generation_config(1024),
     after_agent_callback=guardrails.research_guard("market"),
     after_model_callback=guardrails.egress_guard(),
     instruction=(
@@ -150,6 +172,8 @@ collect = ParallelAgent(name="collect", sub_agents=[news_agent, sentiment_agent,
 
 predictor_agent = Agent(
     name="predictor_agent", model=MODEL, tools=[historical_range_48h, current_brent_range, predict_48h], output_key="forecast",
+    planner=PLANNER,
+    generate_content_config=_generation_config(2048),
     after_tool_callback=guardrails.tool_output_guard,
     on_tool_error_callback=guardrails.tool_error_guard,
     after_model_callback=guardrails.egress_guard(),
@@ -165,17 +189,20 @@ predictor_agent = Agent(
         "price = last_price from step 1, BRENT 5D CHANGE % from MARKET (use 0 if MARKET failed validation, "
         "and say so), SENTIMENT SCORE and RISK LEVEL, and again with risk_level='high', as scenario "
         "overlays only. Do not invent missing values. "
-        "Show a markdown table with the historical range and both overlays. State that the "
+        "Show a concise markdown table with the historical range and both overlays. Do not repeat "
+        "the research notes or search again. State that the "
         "historical range is statistical (not a guarantee), and that the overlays are unvalidated "
         "judgement rules: backtests show momentum does not beat a no-change forecast."),
 )
 
 critic_agent = Agent(
     name="critic_agent", model=MODEL, output_key="briefing",
+    planner=PLANNER,
+    generate_content_config=_generation_config(2048),
     after_model_callback=guardrails.egress_guard(require_disclaimer=True),
     instruction=(
         "Forecast:\n{forecast}\n\nNews:\n{news}\nSentiment:\n{sentiment}\nMarket:\n{market}\n\n"
-        "Write the final briefing. NUMBER RULES: the 48h range and every price in it must be copied "
+        "Write the final briefing in at most 350 words. NUMBER RULES: the 48h range and every price in it must be copied "
         "exactly from the historical_range_48h result in the Forecast (low, median, high); never "
         "compute, round differently or invent a price or range. Stress-case prices must come from "
         "the predict_48h overlays and be labelled 'overlay'. Cite only facts present in the inputs.\n"
@@ -190,6 +217,8 @@ critic_agent = Agent(
 
 chat_agent = Agent(
     name="chat_agent", model=MODEL, tools=[current_brent_range],
+    planner=PLANNER,
+    generate_content_config=_generation_config(1024),
     after_tool_callback=guardrails.tool_output_guard,
     on_tool_error_callback=guardrails.tool_error_guard,
     after_model_callback=guardrails.egress_guard(),

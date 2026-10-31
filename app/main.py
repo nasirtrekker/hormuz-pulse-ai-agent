@@ -32,7 +32,7 @@ logger = logging.getLogger("hormuz.app")
 STATIC = Path(__file__).parent / "static"
 
 REFRESH_SECONDS = 12 * 3600
-BRIEF_TIMEOUT_SECONDS = int(os.environ.get("BRIEF_TIMEOUT_SECONDS", "240"))
+BRIEF_TIMEOUT_SECONDS = int(os.environ.get("BRIEF_TIMEOUT_SECONDS", "90"))
 BRIEFS_PER_IP_PER_HOUR = int(os.environ.get("BRIEFS_PER_IP_PER_HOUR", "5"))
 BRIEFS_PER_DAY = int(os.environ.get("BRIEFS_PER_DAY", "300"))
 CHATS_PER_IP_PER_HOUR = int(os.environ.get("CHATS_PER_IP_PER_HOUR", "60"))
@@ -267,6 +267,7 @@ async def _ensure_session(service, session_id: Optional[str]) -> str:
 async def _run_agents(question: str, trace: telemetry.Trace, session_id: Optional[str] = None) -> tuple:
     """Run chat or the research pipeline inside the visitor's session. Returns (text, session_id)."""
     from google.genai import types
+    from google.adk.agents.run_config import RunConfig
     from hormuz.agent import collect
     mode = trace.mode = route(question)
     runner, service = _get_runner(mode)
@@ -278,12 +279,18 @@ async def _run_agents(question: str, trace: telemetry.Trace, session_id: Optiona
     parallel = frozenset(a.name for a in collect.sub_agents) if mode == "briefing" else frozenset()
     message = types.Content(role="user", parts=[types.Part(text=question)])
     final = ""
-    async for event in runner.run_async(user_id="web", session_id=sid, new_message=message):
+    final_author = "chat_agent" if mode == "chat" else "critic_agent"
+    async for event in runner.run_async(
+            user_id="web", session_id=sid, new_message=message,
+            run_config=RunConfig(max_llm_calls=12 if mode == "briefing" else 4)):
         trace.observe(event, parallel)
-        if event.is_final_response() and event.content and event.content.parts:
+        if (event.author == final_author and event.is_final_response()
+                and event.content and event.content.parts):
             text = "".join(p.text for p in event.content.parts if p.text and not p.thought)
             if text:
                 final = text
+    if not final.strip():
+        raise RuntimeError("The research run produced no final response")
     return final, sid
 
 

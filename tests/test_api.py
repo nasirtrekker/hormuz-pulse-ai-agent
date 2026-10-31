@@ -1,3 +1,4 @@
+import asyncio
 import unittest
 from unittest import mock
 
@@ -49,7 +50,7 @@ class ApiTests(unittest.TestCase):
     def test_ops_page_served(self):
         r = self.client.get("/ops")
         self.assertEqual(r.status_code, 200)
-        self.assertIn("Agent ops", r.text)
+        self.assertIn("Research ops", r.text)
 
     def test_evidence_is_published(self):
         body = self.client.get("/api/evidence").json()
@@ -75,6 +76,38 @@ class ApiTests(unittest.TestCase):
             r = self.client.post("/api/brief", json={})
         self.assertEqual(r.status_code, 502)
         self.assertNotIn("secret internal detail", r.text)
+
+    def test_brief_timeout_returns_an_explicit_error(self):
+        async def slow(*_):
+            await asyncio.sleep(1)
+        main.limiter = main._Limiter()
+        with mock.patch.object(main, "_run_agents", slow), mock.patch.object(main, "BRIEF_TIMEOUT_SECONDS", 0.01):
+            r = self.client.post("/api/brief", json={})
+        self.assertEqual(r.status_code, 504)
+        self.assertIn("took too long", r.json()["detail"])
+
+    def test_empty_agent_response_is_rejected_and_model_calls_are_bounded(self):
+        from hormuz import telemetry
+        from google.genai import types
+
+        async def no_events(**kwargs):
+            self.assertEqual(kwargs["run_config"].max_llm_calls, 12)
+            event = mock.Mock(
+                author="news_agent", timestamp=0,
+                content=types.Content(parts=[types.Part(text="Research is not a final briefing.")]))
+            event.is_final_response.return_value = True
+            event.get_function_calls.return_value = []
+            event.get_function_responses.return_value = []
+            yield event
+
+        runner = mock.Mock()
+        runner.run_async = no_events
+        service = mock.Mock()
+        service.get_session = mock.AsyncMock(return_value=mock.Mock(events=[]))
+        with mock.patch.object(main, "_get_runner", return_value=(runner, service)), \
+                mock.patch.object(main, "_ensure_session", new=mock.AsyncMock(return_value="abcdef123456")):
+            with self.assertRaisesRegex(RuntimeError, "no final response"):
+                asyncio.run(main._run_agents("Predict Brent", telemetry.Trace(13)))
 
     def test_brief_success_is_graded_against_the_range(self):
         from hormuz import telemetry

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Hormuz Pulse: agent ops and evaluation</title>
+<title>Hormuz Pulse: research ops and evaluation</title>
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -12,14 +12,14 @@
     <div class="brand"><span class="logo">🛢️</span> Hormuz Pulse</div>
     <div>
       <a class="link" href="/">🏠 Dashboard</a>
-      <a class="link" href="/ops">📈 Agent ops</a>
+      <a class="link" href="/ops">📈 Research ops</a>
       <a class="gh" href="https://github.com/nasirtrekker/hormuz-pulse-ai-agent" target="_blank" rel="noopener"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.08-2.7-1.08-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.71 1.22 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.65-.89-3.65-3.96 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.08-1.87 3.76-3.65 3.96.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg> Source</a>
     </div>
   </nav>
   <header class="hero">
     <span class="badge"><i></i> Live metrics · metadata only · refreshes every 10 s</span>
-    <h1>Agent ops &amp; evaluation</h1>
-    <p class="sub">📈 Traces of the research agents, guardrail activity and quality scores. No question text or IP addresses are stored. Counters are per server instance and reset on restart.</p>
+    <h1>Research ops &amp; evaluation</h1>
+    <p class="sub">📈 Research process traces, guardrail activity and quality scores. No question text or IP addresses are stored. Counters are per server instance and reset on restart.</p>
   </header>
 
   <div class="panels" id="panels"></div>
@@ -30,8 +30,8 @@
   </div>
 
   <section class="card">
-    <h2><span class="emoji">🔎</span>Agent traces</h2>
-    <p class="note">Click a run to see which agent ran when and which tools it called. Parallel research agents overlap.</p>
+    <h2><span class="emoji">🔎</span>Research traces</h2>
+    <p class="note">Click a run to see which research stage ran when and which tools it called. Parallel research stages overlap.</p>
     <div class="scroll"><table id="traces"><tr><td class="note">Loading…</td></tr></table></div>
     <div class="gantt" id="gantt"></div>
   </section>

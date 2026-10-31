@@ -2,8 +2,6 @@
 
 [![CI](https://github.com/nasirtrekker/hormuz-pulse-ai-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/nasirtrekker/hormuz-pulse-ai-agent/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)
-![Google ADK](https://img.shields.io/badge/Google-ADK-4285F4?logo=google&logoColor=white)
-![Gemini](https://img.shields.io/badge/Gemini-Vertex%20AI-8E75B2?logo=googlegemini&logoColor=white)
 ![Cloud Run](https://img.shields.io/badge/Cloud%20Run-scale%20to%20zero-34A853?logo=googlecloud&logoColor=white)
 ![Guardrails](https://img.shields.io/badge/guardrails-ingress%20%C2%B7%20tool%20%C2%B7%20egress-E34F26)
 ![Data](https://img.shields.io/badge/data-public%20only-1F9D55)
@@ -12,8 +10,7 @@
 
 A web app for forecasters, investors and the public. Open the link and you see
 real Brent crude history, a data-driven 48-hour price range with its backtested
-reliability, and a box that runs a team of Gemini research agents (Google ADK)
-for a live briefing on the Strait of Hormuz.
+reliability, and a live research briefing on the Strait of Hormuz.
 
 ### 🌍 Live app: https://hormuz-pulse-2o4l63xkqq-nw.a.run.app
 
@@ -32,9 +29,9 @@ Editable source: [docs/demo-slides.drawio](docs/demo-slides.drawio).
 
 ![Dashboard](docs/dashboard.png)
 
-### 2. Agent ops (`/ops`): traces and evaluation
+### 2. Research ops (`/ops`): traces and evaluation
 
-![Agent ops](docs/ops.png)
+![Research ops](docs/ops.png)
 
 ## 🧭 How to use it
 
@@ -44,10 +41,11 @@ Editable source: [docs/demo-slides.drawio](docs/demo-slides.drawio).
 | 2️⃣ | Type a price in "Try your own Brent price" and click **Recalculate range** | Range recomputed around your price | 🟢 none |
 | 3️⃣ | Read "How reliable is this range?" | Backtest: how often real outcomes fell inside the range | 🟢 none |
 | 4️⃣ | Chat in **Chat with the research team**: say hi, ask follow-ups, or ask to *predict* (a fresh briefing takes about 30 to 90 seconds) | Chat replies in seconds. A warning appears under an answer only if a check fails (range not quoted, prices far from the range, disclaimer missing); the full check counts are on `/ops` | 🟡 Vertex AI, only when you send a message |
-| 5️⃣ | Open **Agent ops** | Live traces, latency, guardrail counts, evaluation scores | 🟢 none |
+| 5️⃣ | Open **Research ops** | Live traces, latency, guardrail counts, evaluation scores | 🟢 none |
 
-Cloud charges happen only when someone clicks **Ask**. Cloud Run scales to zero
-when idle.
+Model and search charges are incurred only when someone sends a chat or briefing
+message. Cloud Run, image storage and build charges may also apply, depending on
+traffic and deployments. Cloud Run scales to zero when idle.
 
 Read the range as a risk band, not a price target: the backtest shows the band is
 calibrated but no method beat "the price stays the same" for direction.
@@ -60,7 +58,7 @@ calibrated but no method beat "the price stays the same" for direction.
 | Where is the dialogue saved? | Server RAM only, per Cloud Run instance (session affinity keeps a visitor on one instance). The browser keeps the visible transcript in `sessionStorage`. Nothing is written to a database or disk, and "New chat" clears it. A restart loses it. |
 | How does it pick chat or research? | `route()` in `app/main.py`: words like *predict, forecast, brief, research, how risky, what is driving* start the full research pipeline; everything else (greetings, "why is the range so wide?") goes to `chat_agent`. |
 | Which Brent price is used? | The range starts from the latest Brent **futures** close (the contract quoted on Google and exchanges), fetched from Yahoo Finance's unofficial public feed, cached 15 minutes, sanity-checked, and falling back to FRED spot if unavailable. The chart shows the same futures closes (FRED Europe Brent spot is the fallback and the source of the 39-year backtest; it runs several dollars higher than futures during supply disruptions). |
-| Why does a briefing take 30 to 90 seconds? | Five model stages run in order: three search agents in parallel (about 20 s, the slowest sets the time), then the predictor (about 5 s), then the critic (about 10 s). Chat replies skip this and take a few seconds. Per-agent timings are on `/ops`. |
+| Why does a briefing take longer than chat? | Five agents run across three phases: three search agents in parallel (the slowest sets the time), then the predictor, then the critic. Generation uses low thinking, concise outputs, a 45-second per-model-call timeout and at most one retry for transient provider errors, with a one-second maximum retry delay. The whole pipeline has a 90-second timeout by default; timings are on `/ops`. Chat skips the research pipeline. |
 | Where are the system prompts? | In `hormuz/agent.py`: the `instruction=` of each agent (`news_agent`, `sentiment_agent`, `data_agent`, `predictor_agent`, `critic_agent`, `chat_agent`). The user prompt is the message you type; web text is passed to later agents as untrusted data. |
 | Is it RAG? Does it use embeddings? | No. There is no vector database and no embedding model. Facts come from Google Search grounding in Gemini and from a Python tool over public FRED data. The research notes and latest briefing are placed in the chat prompt as session state. |
 
@@ -99,7 +97,7 @@ flowchart LR
         AG --> VX[Vertex AI Gemini<br/>+ Google Search grounding]
     end
     RM --> DS[(Public data snapshots<br/>FRED Brent, OVX, VIX, USD, GPR)]
-    DS -. refreshed at most daily .-> FRED[FRED]
+    DS -. refreshed at most every 12 hours .-> FRED[FRED]
     GH[GitHub Actions] -->|keyless deploy, Workload Identity| CR
 ```
 
@@ -279,8 +277,9 @@ flowchart TB
 | `POST /api/brief` | agent briefing with `trace_id` and `checks` |
 
 Public use is protected by per-IP and daily briefing limits
-(`BRIEFS_PER_IP_PER_HOUR`, `BRIEFS_PER_DAY`, per instance), the guardrails, a
-300 s timeout and at most 3 instances.
+(`BRIEFS_PER_IP_PER_HOUR`, `BRIEFS_PER_DAY`, per instance), the guardrails,
+an application timeout of 90 s by default and a Cloud Run request timeout of
+300 s. The deployment caps Cloud Run at 3 instances.
 
 ## 🛡️ Guardrails and answer checks
 
@@ -303,7 +302,7 @@ model calls:
 
 | Job and step | What it checks | Result |
 |---|---|---|
-| test: unit tests | 61 tests: range model, backtest, API, telemetry, guardrails, agent wiring | ✅ |
+| test: unit tests | 64 tests: range model, backtest, API, telemetry, guardrails, agent wiring and bounded model requests | ✅ |
 | test: attack corpus | known injection, PII and secret strings stay blocked or redacted | ✅ |
 | test: `adk eval` | ADK evaluation in `evals/guardrails.evalset.json` | ✅ |
 | test: build inputs, script syntax | Dockerfile and requirements exist, shell scripts parse | ✅ |
@@ -360,7 +359,7 @@ deterministic code, not prompts, and are covered by `tests/test_guardrails.py`.
 | Checkpoint | Callback | What it does |
 |---|---|---|
 | Ingress | `before_agent_callback` on `root_agent` | Blocks empty, over-1000-character, control-character, attachment and instruction-override requests before any model call. |
-| Research output (web search) | `after_agent_callback` on the 3 research agents | Treats web-derived text as untrusted: strips control characters, removes injection phrases and secrets, caps length, and appends `VALIDATION FAILED` if `RISK LEVEL`, `SENTIMENT SCORE` (-1..1), `BRENT PRICE` (10..500) or `BRENT 5D CHANGE %` (-50..50) is missing or implausible. The predictor then refuses to compute. |
+| Research output (web search) | `after_agent_callback` on the 3 research agents | Treats web-derived text as untrusted: strips control characters, removes injection phrases and secrets, caps length, and appends `VALIDATION FAILED` if required fields are missing or implausible. The predictor skips tool calls when the news risk or sentiment score fails validation. If market-price fields fail validation, it can still calculate the statistical range and uses a zero five-day change for the illustrative overlay. |
 | Tool output | `after_tool_callback`, `on_tool_error_callback` on `predictor_agent` | Rejects non-finite or implausible results (forecast outside 50%..150% of the input price) and reports invalid inputs to the model instead of crashing the run. |
 | Egress | `after_model_callback` on every LLM agent | Redacts API keys, tokens and private keys, caps output length, and appends the not-financial-advice disclaimer to the final briefing if missing. |
 
@@ -424,7 +423,7 @@ percentiles of those standardised returns come from the data (no normal assumpti
 and are scaled by today's blended volatility around the live price. The tool
 `historical_range_48h` in `hormuz/agent.py` exposes it to the predictor agent.
 
-## Evidence (`python scripts/experiment.py`, walk-forward, 1,503 unseen 2-day moves, 2015 to 2026)
+## Evidence (`python scripts/experiment.py`, walk-forward, 1,503 unseen 2-day moves, 2015 to 2026-10-23)
 
 Quantiles are refit yearly using only past data and scored with pinball loss.
 
@@ -447,7 +446,17 @@ Findings, stated plainly:
   scenario input (`predict_48h`), not a validated predictor.
 - A crisis can move prices beyond anything in the history.
 
+The checked-in results cover 1,503 test points from 2015 through 2026-10-23.
+They are reproducible from the bundled data with `python scripts/experiment.py`.
 The same results are served at `/api/evidence` and shown in the dashboard.
+
+### Fact-check notes
+
+Checked against the implementation, tests and bundled result files on
+2026-10-31. The backtest and experiment numbers above describe historical
+samples, not a guarantee of future performance. The live dashboard recomputes
+its walk-forward backtest from the currently loaded data, so its values can
+differ from the separate, checked-in experiment results.
 
 ## CI/CD and operations
 
