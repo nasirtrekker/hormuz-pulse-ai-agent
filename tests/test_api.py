@@ -30,6 +30,11 @@ class ApiTests(unittest.TestCase):
         self.assertLess(f["median"], f["high"])
         self.assertEqual(f["last_price"], 100.0)
 
+    def test_evidence_is_published(self):
+        body = self.client.get("/api/evidence").json()
+        self.assertGreater(len(body["models"]), 3)
+        self.assertTrue(any(t["feature"] == "gpr" for t in body["news_tests"]))
+
     def test_forecast_rejects_bad_price(self):
         for bad in ("5", "9999", "abc"):
             with self.subTest(bad=bad):

@@ -1,3 +1,5 @@
 -r requirements.txt
 google-adk[eval]==1.18.0
 httpx==0.28.1
+scikit-learn==1.9.1
+xlrd

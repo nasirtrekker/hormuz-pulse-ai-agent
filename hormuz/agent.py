@@ -15,16 +15,17 @@ from google.adk.agents import Agent, ParallelAgent, SequentialAgent
 from google.adk.tools import google_search
 
 from . import guardrails, stat_model
-from .market_data import load_history
+from .market_data import align_implied_vol, load_history, load_ovx
 
 MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
 
 
 _HISTORY = None
+_IMPLIED = None
 
 
 def historical_range_48h(price: float) -> dict:
-    """Data-driven 48-hour Brent range from 1987-onward public price history (FRED).
+    """Data-driven 48-hour Brent range from public Brent history and the OVX implied-volatility index.
 
     Args:
       price: latest Brent price in USD/barrel, used as the starting point.
@@ -33,13 +34,15 @@ def historical_range_48h(price: float) -> dict:
       Median, low (10th percentile) and high (90th percentile) after two trading days,
       with the recent daily volatility and the number of historical samples used.
     """
-    global _HISTORY
+    global _HISTORY, _IMPLIED
     if isinstance(price, bool) or not isinstance(price, (int, float)) or not math.isfinite(price) or price <= 0:
         raise ValueError("price must be a finite number greater than zero")
     if _HISTORY is None:
-        _HISTORY = [p for _, p in load_history()]
-    result = stat_model.forecast(_HISTORY, anchor=float(price))
-    result["source"] = "FRED DCOILBRENTEU daily Brent spot, 1987 to latest snapshot"
+        rows = load_history()
+        _HISTORY = [p for _, p in rows]
+        _IMPLIED = align_implied_vol([d for d, _ in rows], load_ovx())
+    result = stat_model.forecast_blend(_HISTORY, _IMPLIED[0], _IMPLIED[1], anchor=float(price))
+    result["source"] = "FRED Brent spot (1987-) and CBOE crude oil volatility index OVX (2007-)"
     return result
 
 

@@ -1,0 +1,92 @@
+{
+ "test_points": 1503,
+ "period": "2015 to 2026-10-23",
+ "models": [
+  {
+   "name": "A realized-vol empirical (current app)",
+   "pinball": 92.67,
+   "vs_current_pct": 0.0,
+   "coverage80_pct": 79.4,
+   "width_pct": 9.28,
+   "median_abs_error_pct": 2.793
+  },
+  {
+   "name": "B implied-vol (OVX) empirical",
+   "pinball": 90.82,
+   "vs_current_pct": -2.0,
+   "coverage80_pct": 76.5,
+   "width_pct": 7.87,
+   "median_abs_error_pct": 2.794
+  },
+  {
+   "name": "B2 blend realized+implied vol empirical",
+   "pinball": 91.05,
+   "vs_current_pct": -1.7,
+   "coverage80_pct": 78.6,
+   "width_pct": 8.42,
+   "median_abs_error_pct": 2.793
+  },
+  {
+   "name": "C GBM market features",
+   "pinball": 92.47,
+   "vs_current_pct": -0.2,
+   "coverage80_pct": 76.4,
+   "width_pct": 8.36,
+   "median_abs_error_pct": 2.824
+  },
+  {
+   "name": "D GBM market + news (GPR)",
+   "pinball": 92.45,
+   "vs_current_pct": -0.2,
+   "coverage80_pct": 75.5,
+   "width_pct": 8.3,
+   "median_abs_error_pct": 2.826
+  },
+  {
+   "name": "E GBM market + news, implied-vol scale",
+   "pinball": 91.51,
+   "vs_current_pct": -1.3,
+   "coverage80_pct": 75.4,
+   "width_pct": 7.74,
+   "median_abs_error_pct": 2.822
+  }
+ ],
+ "news_tests": [
+  {
+   "feature": "gpr",
+   "rho_direction": -0.013,
+   "p_direction": 0.362,
+   "rho_size": -0.005,
+   "p_size": 0.728
+  },
+  {
+   "feature": "gpr_ratio",
+   "rho_direction": -0.003,
+   "p_direction": 0.827,
+   "rho_size": -0.012,
+   "p_size": 0.418
+  },
+  {
+   "feature": "gpr_threat",
+   "rho_direction": -0.0,
+   "p_direction": 0.976,
+   "rho_size": -0.016,
+   "p_size": 0.252
+  },
+  {
+   "feature": "ovx_chg5",
+   "rho_direction": -0.029,
+   "p_direction": 0.043,
+   "rho_size": 0.107,
+   "p_size": 0.0
+  },
+  {
+   "feature": "r5",
+   "rho_direction": 0.019,
+   "p_direction": 0.187,
+   "rho_size": -0.094,
+   "p_size": 0.0
+  }
+ ],
+ "no_change_median_abs_error_pct": 2.799
+}

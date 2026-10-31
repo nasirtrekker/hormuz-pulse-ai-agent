@@ -29,7 +29,7 @@ function showStats(f) {
     stat("48h low (10th percentile)", `$${fmt(f.low)}`),
     stat("48h median", `$${fmt(f.median)}`),
     stat("48h high (90th percentile)", `$${fmt(f.high)}`),
-    stat("Daily volatility, last 20 days", `${f.daily_vol_pct}%`),
+    stat("Daily volatility used (realised " + f.realised_daily_vol_pct + "%, options-implied " + f.implied_daily_vol_pct + "%)", `${f.daily_vol_pct}%`),
   );
 }
 
@@ -87,15 +87,18 @@ async function init() {
     $("stats").textContent = "Could not load data: " + err.message;
     $("stats").className = "err";
   }
+  loadEvidence();
   try {
     const b = await getJSON("/api/backtest");
     const rows = [
       ["Forecasts tested", `${b.forecasts} (${b.from} to ${b.to})`],
       ["80% range: share of outcomes inside (target 80%)", `${b.coverage_data_driven_pct}%`],
+      ["Range with options-implied volatility added: share inside", `${b.coverage_blend_pct}%`],
+      ["Range without it: share inside, average width", `${b.coverage_data_driven_pct}%, ${b.mean_interval_width_pct}%`],
       ["Old fixed ±3.6% band: share inside", `${b.coverage_fixed_band_pct}%`],
       ["Point error, 'price stays the same'", `${b.mape_no_change_pct}%`],
       ["Point error, momentum rule", `${b.mape_momentum_pct}%`],
-      ["Average range width", `${b.mean_interval_width_pct}% of price`],
+      ["Average range width (this model)", `${b.mean_blend_width_pct}% of price`],
     ];
     $("bt").replaceChildren(...rows.map(([k, v]) => {
       const tr = document.createElement("tr");
@@ -105,6 +108,30 @@ async function init() {
     }));
   } catch (err) {
     $("bt").textContent = "Backtest unavailable: " + err.message;
+  }
+}
+
+async function loadEvidence() {
+  try {
+    const e = await getJSON("/api/evidence");
+    const head = document.createElement("tr");
+    ["Model (scored on " + e.test_points + " unseen 2-day moves, " + e.period + ")", "Score vs current (lower is better)", "Inside 80% range"].forEach((t) => {
+      const th = document.createElement("th"); th.textContent = t; head.append(th);
+    });
+    const rows = e.models.map((m) => {
+      const tr = document.createElement("tr");
+      [m.name, `${m.vs_current_pct > 0 ? "+" : ""}${m.vs_current_pct}%`, `${m.coverage80_pct}%`].forEach((t) => {
+        const td = document.createElement("td"); td.textContent = t; tr.append(td);
+      });
+      return tr;
+    });
+    $("ev").replaceChildren(head, ...rows);
+    const g = e.news_tests.find((t) => t.feature === "gpr");
+    $("evnote").textContent =
+      `News (Geopolitical Risk Index) vs the next 2-day move: correlation ${g.rho_direction} for direction (p=${g.p_direction}) and ${g.rho_size} for size (p=${g.p_size}), i.e. no measurable predictive power. ` +
+      `No model beat "no change" on the point forecast (median error ${e.no_change_median_abs_error_pct}% for no change). Only options-implied volatility improved the range.`;
+  } catch (err) {
+    $("ev").textContent = "Evidence unavailable: " + err.message;
   }
 }
 

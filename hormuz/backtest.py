@@ -5,17 +5,30 @@ from typing import Sequence
 from . import stat_model as sm
 
 
-def run(dates: Sequence[str], prices: Sequence[float], start_year: int = 2015, step: int = 5) -> dict:
+def run(dates: Sequence[str], prices: Sequence[float], implied: Sequence[float] = None,
+        start_year: int = 2015, step: int = 5) -> dict:
     h = sm.HORIZON
     rets = sm._log_returns(prices)
     start = next(i for i, d in enumerate(dates) if int(d[:4]) >= start_year)
-    rw_err, mom_err, width = [], [], []
-    hits_data = hits_fixed = n = 0
-    z = None
+    rw_err, mom_err, width, width_b = [], [], [], []
+    hits_data = hits_fixed = hits_blend = n = 0
+    z = zb = None
     for i in range(start, len(prices) - h, step):
         if z is None or (i - start) % 250 == 0:
             z = sorted(sm.standardised_returns(prices[: i + 1]))
-        sigma = sm._vol(rets[i - sm.VOL_WINDOW:i]) * math.sqrt(h)
+        realised = sm._vol(rets[i - sm.VOL_WINDOW:i])
+        sigma = realised * math.sqrt(h)
+        if implied is not None and implied[i] > 0:
+            if zb is None or (i - start) % 250 == 0:
+                zb = sorted(
+                    math.log(prices[k + h] / prices[k])
+                    / (sm._blend_scale(sm._vol(rets[k - sm.VOL_WINDOW:k]), implied[k]) * math.sqrt(h))
+                    for k in range(sm.VOL_WINDOW, i - h) if implied[k] > 0)
+            sb = sm._blend_scale(realised, implied[i]) * math.sqrt(h)
+            blo = prices[i] * math.exp(sm._quantile(zb, 0.10) * sb)
+            bhi = prices[i] * math.exp(sm._quantile(zb, 0.90) * sb)
+            hits_blend += blo <= prices[i + h] <= bhi
+            width_b.append((bhi - blo) / prices[i])
         last, actual = prices[i], prices[i + h]
         lo = last * math.exp(sm._quantile(z, 0.10) * sigma)
         hi = last * math.exp(sm._quantile(z, 0.90) * sigma)
@@ -34,4 +47,6 @@ def run(dates: Sequence[str], prices: Sequence[float], start_year: int = 2015, s
         "mape_no_change_pct": round(100 * sum(rw_err) / n, 2),
         "mape_momentum_pct": round(100 * sum(mom_err) / n, 2),
         "mean_interval_width_pct": round(100 * sum(width) / n, 2),
+        "coverage_blend_pct": round(100 * hits_blend / len(width_b), 1) if width_b else None,
+        "mean_blend_width_pct": round(100 * sum(width_b) / len(width_b), 2) if width_b else None,
     }

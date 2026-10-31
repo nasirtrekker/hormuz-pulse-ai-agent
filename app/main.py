@@ -5,6 +5,7 @@
   GET  /api/history     Brent daily history (FRED), refreshed from FRED at most every 12 hours
   GET  /api/forecast    data-driven 48-hour range (optionally anchored on a price you supply)
   GET  /api/backtest    walk-forward backtest of that range, computed from the same data
+  GET  /api/evidence    published results of the news / implied-volatility feature experiment
   POST /api/brief       runs the Gemini research agents and returns the written briefing
 """
 import asyncio
@@ -41,10 +42,15 @@ class _Data:
         rows = market_data.load_history()
         self.dates = [d for d, _ in rows]
         self.prices = [p for _, p in rows]
+        self.ovx_rows = market_data.load_ovx()
+        self._align()
         self.source = "bundled FRED snapshot"
         self.loaded_at = 0.0
         self.backtest: Optional[dict] = None
         self.lock = threading.Lock()
+
+    def _align(self) -> None:
+        self.implied, self.implied_now = market_data.align_implied_vol(self.dates, self.ovx_rows)
 
     def refresh_if_stale(self) -> None:
         if time.time() - self.loaded_at < REFRESH_SECONDS:
@@ -57,8 +63,11 @@ class _Data:
                 import urllib.request
                 with urllib.request.urlopen(market_data.FRED_URL, timeout=15) as resp:
                     rows = market_data.parse(resp.read().decode("utf-8"))
-                if len(rows) >= 5000:
-                    self.dates, self.prices = [d for d, _ in rows], [p for _, p in rows]
+                with urllib.request.urlopen(market_data.OVX_URL, timeout=15) as resp:
+                    ovx = market_data.parse_ovx(resp.read().decode("utf-8"))
+                if len(rows) >= 5000 and len(ovx) >= 3000:
+                    self.dates, self.prices, self.ovx_rows = [d for d, _ in rows], [p for _, p in rows], ovx
+                    self._align()
                     self.source = "FRED (live)"
                     self.backtest = None
             except (urllib.error.URLError, OSError, ValueError) as exc:
@@ -146,7 +155,7 @@ def forecast(price: Optional[float] = None) -> dict:
     data.refresh_if_stale()
     if price is not None and not (10 <= price <= 500):
         raise HTTPException(422, "price must be between 10 and 500 USD per barrel")
-    result = stat_model.forecast(data.prices, anchor=price)
+    result = stat_model.forecast_blend(data.prices, data.implied, data.implied_now, anchor=price)
     result.update({"as_of": data.dates[-1], "anchored_on": "your price" if price else "latest FRED close",
                    "horizon": "2 trading days", "source": data.source})
     return result
@@ -157,8 +166,18 @@ def get_backtest() -> dict:
     data.refresh_if_stale()
     with data.lock:
         if data.backtest is None:
-            data.backtest = backtest.run(data.dates, data.prices, 2015)
+            data.backtest = backtest.run(data.dates, data.prices, data.implied, start_year=2015)
         return data.backtest
+
+
+@app.get("/api/evidence")
+def evidence() -> dict:
+    """Result of scripts/experiment.py: do news and market-implied features improve the forecast?"""
+    path = Path(market_data.DATA_DIR) / "experiment_results.json"
+    if not path.exists():
+        raise HTTPException(404, "experiment results not generated")
+    import json
+    return json.loads(path.read_text())
 
 
 class BriefRequest(BaseModel):

@@ -4,7 +4,7 @@ import unittest
 
 from hormuz import stat_model
 from hormuz.agent import historical_range_48h
-from hormuz.market_data import load_history, parse
+from hormuz.market_data import align_implied_vol, load_history, load_ovx, parse, parse_ovx
 
 
 class MarketDataTests(unittest.TestCase):
@@ -16,6 +16,44 @@ class MarketDataTests(unittest.TestCase):
         rows = load_history()
         self.assertGreater(len(rows), 9000)
         self.assertTrue(all(p > 0 for _, p in rows))
+
+
+class ImpliedVolTests(unittest.TestCase):
+    def test_parse_ovx_skips_missing(self):
+        rows = parse_ovx("observation_date,OVXCLS\n2020-01-01,30.5\n2020-01-02,.\n")
+        self.assertEqual(rows, [("2020-01-01", 30.5)])
+
+    def test_alignment_carries_forward_only_briefly(self):
+        dates = ["2020-01-01", "2020-01-03", "2020-02-01"]
+        aligned, latest = align_implied_vol(dates, [("2020-01-01", 25.2)])
+        self.assertAlmostEqual(aligned[0], 25.2 / 100 / math.sqrt(252))
+        self.assertAlmostEqual(aligned[1], aligned[0])
+        self.assertTrue(math.isnan(aligned[2]))
+        self.assertAlmostEqual(latest, aligned[0])
+
+    def test_bundled_ovx_is_real(self):
+        self.assertGreater(len(load_ovx()), 4500)
+
+
+class BlendModelTests(unittest.TestCase):
+    def setUp(self):
+        rows = load_history()
+        self.prices = [p for _, p in rows]
+        self.implied, self.now = align_implied_vol([d for d, _ in rows], load_ovx())
+
+    def test_range_ordered_and_scales_with_implied_vol(self):
+        calm = stat_model.forecast_blend(self.prices, self.implied, 0.01)
+        wild = stat_model.forecast_blend(self.prices, self.implied, 0.05)
+        for r in (calm, wild):
+            self.assertLess(r["low"], r["median"])
+            self.assertLess(r["median"], r["high"])
+        self.assertGreater(wild["high"] - wild["low"], calm["high"] - calm["low"])
+
+    def test_rejects_misaligned_or_bad_input(self):
+        with self.assertRaises(ValueError):
+            stat_model.forecast_blend(self.prices, self.implied[:-1], self.now)
+        with self.assertRaises(ValueError):
+            stat_model.forecast_blend(self.prices, self.implied, 0.0)
 
 
 class StatModelTests(unittest.TestCase):
@@ -43,7 +81,8 @@ class StatModelTests(unittest.TestCase):
         result = historical_range_48h(100.0)
         self.assertLess(result["low"], 100.0)
         self.assertGreater(result["high"], 100.0)
-        self.assertGreater(result["training_samples"], 9000)
+        self.assertGreater(result["training_samples"], 4000)
+        self.assertIn("implied_daily_vol_pct", result)
 
     def test_tool_rejects_bad_price(self):
         for bad in (0, -5, float("nan"), True, "80"):

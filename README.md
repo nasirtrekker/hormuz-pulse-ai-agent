@@ -12,7 +12,7 @@ agent team (Google ADK) for a live briefing on the Strait of Hormuz.
 | Agent team | `hormuz/agent.py` | ADK, Gemini on Vertex AI, Google Search |
 | Guardrails | `hormuz/guardrails.py`, `hormuz/model_armor.py` | see below |
 
-API: `GET /api/history`, `GET /api/forecast?price=`, `GET /api/backtest`,
+API: `GET /api/history`, `GET /api/forecast?price=`, `GET /api/backtest`, `GET /api/evidence`,
 `POST /api/brief`, `GET /healthz`. The dashboard works without any cloud
 credentials; only the briefing needs Vertex AI. Public use is protected by
 per-IP and daily briefing limits (`BRIEFS_PER_IP_PER_HOUR`, `BRIEFS_PER_DAY`,
@@ -92,33 +92,46 @@ All market data is public and no API key is needed.
 
 | Item | Source | Used for |
 |---|---|---|
-| Brent daily spot, 1987 to 2026-10-27 (9,117 valid daily prices) | FRED series `DCOILBRENTEU` (`hormuz/data/`, refreshed with `python -m hormuz.market_data`) | the 48-hour range |
+| Brent daily spot, 1987 to 2026-10-27 (9,117 valid daily prices) | FRED `DCOILBRENTEU` | the 48-hour range |
+| Crude oil implied volatility (OVX), from 2007 | FRED `OVXCLS` | the 48-hour range (options-market expectation) |
+| VIX, USD index | FRED `VIXCLS`, `DTWEXBGS` | experiment features only |
+| Geopolitical Risk Index, daily, from newspaper coverage, 1985 on | Caldara and Iacoviello (matteoiacoviello.com/gpr.htm) | experiment feature only |
 | Latest price, news, sentiment | Gemini with Google Search grounding, at request time | the starting price and the narrative |
 
-`hormuz/stat_model.py` builds the range: for every past day it measures the 2-day
-return relative to the previous 20 days' volatility, takes the 10th/50th/90th
-percentiles of those standardised returns from the data (no normal-distribution
-assumption), then scales them by today's volatility around the live price. The
-tool `historical_range_48h` in `hormuz/agent.py` exposes it to the predictor agent.
+Snapshots are in `hormuz/data/`; refresh Brent and OVX with `python -m hormuz.market_data`.
 
-Backtest (`python scripts/backtest.py 2015`, walk-forward, 600 forecasts, 2015 to 2026):
+## How the range is computed
 
-| | Result |
-|---|---|
-| 80% range coverage, data-driven | 80.7% (target 80%) |
-| 80% range coverage, old fixed band | 75.5% |
-| Point error, no-change forecast | 2.70% |
-| Point error, momentum rule | 2.72% (no better than no-change) |
+`hormuz/stat_model.py` (`forecast_blend`): for each past day it takes the 2-day
+log return divided by a volatility scale, where the scale is the geometric mean of
+20-day realised volatility and the OVX-implied daily volatility. The 10th/50th/90th
+percentiles of those standardised returns come from the data (no normal assumption)
+and are scaled by today's blended volatility around the live price. The tool
+`historical_range_48h` in `hormuz/agent.py` exposes it to the predictor agent.
 
-So the range is calibrated on history, while the point forecast has no proven edge
-over "price stays the same". The sentiment and Hormuz-risk overlay (`predict_48h`) is
-kept only as a labelled scenario and is not validated. This is a statistical range,
-not a guarantee; real moves in a crisis can exceed history. Not trained: there is no
-neural or gradient-boosted model, because this backtest gave no reason to expect one
-to beat the baseline from price history alone.
+## Evidence (`python scripts/experiment.py`, walk-forward, 1,503 unseen 2-day moves, 2015 to 2026)
 
-News volume and tone from GDELT could be added as features, but I have not verified
-access or tested whether they improve the backtest, so they are not included.
+Quantiles are refit yearly using only past data and scored with pinball loss.
+
+| Model | Score vs realised-vol model | 80% range coverage |
+|---|---|---|
+| Realised-vol empirical | baseline | 79.4% |
+| Implied-vol (OVX) empirical | -2.0% | 76.5% |
+| Blend of both (used) | -1.7% | 78.6% |
+| Gradient boosting, market features | -0.2% | n/a |
+| Gradient boosting, market + news (GPR) | -0.2% | n/a |
+
+Findings, stated plainly:
+- The range is calibrated, and options-implied volatility improves it modestly.
+- The Geopolitical Risk news index showed no predictive power for the next 2-day
+  direction (Spearman p between 0.36 and 0.98) and added nothing in the models.
+- No model beat "price stays the same" as a point forecast. The app therefore shows a
+  range, not a price target.
+- LLM sentiment cannot be backtested historically, so it is a labelled narrative and
+  scenario input (`predict_48h`), not a validated predictor.
+- A crisis can move prices beyond anything in the history.
+
+The same results are served at `/api/evidence` and shown in the dashboard.
 
 ## Architecture
 

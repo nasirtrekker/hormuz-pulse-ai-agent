@@ -4,8 +4,10 @@ import sys
 
 sys.path.insert(0, ".")
 from hormuz import backtest
-from hormuz.market_data import load_history
+from hormuz.market_data import align_implied_vol, load_history, load_ovx
 
 rows = load_history()
-print(json.dumps(backtest.run([d for d, _ in rows], [p for _, p in rows],
+dates = [d for d, _ in rows]
+implied, _ = align_implied_vol(dates, load_ovx())
+print(json.dumps(backtest.run(dates, [p for _, p in rows], implied,
                               int(sys.argv[1]) if len(sys.argv) > 1 else 2015), indent=2))
