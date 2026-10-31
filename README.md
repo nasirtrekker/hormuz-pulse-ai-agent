@@ -33,6 +33,27 @@ The agents depend on search results and language-model extraction, so inputs
 can be incomplete or wrong. Missing or invalid numerical inputs are rejected by
 the Python tool rather than silently converted into a forecast.
 
+## Guardrails (ingress, tool output, egress)
+
+All checks live in `hormuz/guardrails.py` and run as ADK callbacks. They are
+deterministic code, not prompts, and are covered by `tests/test_guardrails.py`.
+
+| Checkpoint | Callback | What it does |
+|---|---|---|
+| Ingress | `before_agent_callback` on `root_agent` | Blocks empty, over-1000-character, control-character, attachment and instruction-override requests before any model call. |
+| Research output (web search) | `after_agent_callback` on the 3 research agents | Treats web-derived text as untrusted: strips control characters, removes injection phrases and secrets, caps length, and appends `VALIDATION FAILED` if `RISK LEVEL`, `SENTIMENT SCORE` (-1..1) or `BRENT PRICE` (10..500) is missing or implausible. The predictor then refuses to compute. |
+| Tool output | `after_tool_callback`, `on_tool_error_callback` on `predictor_agent` | Rejects non-finite or implausible results (forecast outside 50%..150% of the input price) and reports invalid inputs to the model instead of crashing the run. |
+| Egress | `after_model_callback` on every LLM agent | Redacts API keys, tokens and private keys, caps output length, and appends the not-financial-advice disclaimer to the final briefing if missing. |
+
+These are best-effort filters: pattern matching cannot catch every prompt
+injection or leak, so keep the service private and the runtime service account
+limited to `roles/aiplatform.user`.
+
+Network ingress and egress: Cloud Run keeps its default ingress (`all`) but is
+protected by IAM authentication unless you set `PUBLIC_SERVICE=true`. Egress is
+left open because the agents must reach Vertex AI and Google Search; restricting
+it needs a VPC with Cloud NAT and is not configured here.
+
 ## Local development
 
 Requirements: Python 3.10 or later, [uv](https://docs.astral.sh/uv/getting-started/installation/),
