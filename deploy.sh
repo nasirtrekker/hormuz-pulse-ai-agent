@@ -4,9 +4,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT="${1:?Usage: ./deploy.sh PROJECT_ID [REGION]}"
 REGION="${2:-europe-west2}"
+VERTEX_LOCATION="${VERTEX_LOCATION:-global}"
 SERVICE="hormuz-pulse"
 RUNTIME_SA_NAME="hormuz-pulse-runtime"
-SECRET_NAME="google-api-key"
 PUBLIC_SERVICE="${PUBLIC_SERVICE:-false}"
 PYTHON="$SCRIPT_DIR/.venv/bin/python"
 ADK="$SCRIPT_DIR/.venv/bin/adk"
@@ -47,7 +47,7 @@ gcloud services enable \
   cloudbuild.googleapis.com \
   artifactregistry.googleapis.com \
   iam.googleapis.com \
-  secretmanager.googleapis.com \
+  aiplatform.googleapis.com \
   --project "$PROJECT"
 
 RUNTIME_SA="${RUNTIME_SA_NAME}@${PROJECT}.iam.gserviceaccount.com"
@@ -60,36 +60,10 @@ if [[ -z "$(gcloud iam service-accounts list \
     --display-name="Hormuz Pulse Cloud Run runtime"
 fi
 
-SECRET_NAMES="$(gcloud secrets list --project "$PROJECT" --format='value(name)')"
-if ! printf '%s\n' "$SECRET_NAMES" | grep -Eq "(^|/)${SECRET_NAME}$"; then
-  read -r -s -p "Gemini API key (stored in Secret Manager): " API_KEY
-  printf '\n'
-  if [[ -z "$API_KEY" ]]; then
-    echo "Gemini API key cannot be empty." >&2
-    exit 1
-  fi
-  printf '%s' "$API_KEY" | gcloud secrets create "$SECRET_NAME" \
-    --project "$PROJECT" \
-    --data-file=-
-  unset API_KEY
-fi
-
-SECRET_RESOURCE="$(gcloud secrets versions list "$SECRET_NAME" \
-  --project "$PROJECT" \
-  --filter='state=ENABLED' \
-  --sort-by='~createTime' \
-  --limit=1 \
-  --format='value(name)')"
-SECRET_VERSION="${SECRET_RESOURCE##*/}"
-if [[ -z "$SECRET_VERSION" || "$SECRET_VERSION" == "$SECRET_RESOURCE" ]]; then
-  echo "Secret $SECRET_NAME has no enabled versions." >&2
-  exit 1
-fi
-
-gcloud secrets add-iam-policy-binding "$SECRET_NAME" \
-  --project "$PROJECT" \
+gcloud projects add-iam-policy-binding "$PROJECT" \
   --member="serviceAccount:$RUNTIME_SA" \
-  --role="roles/secretmanager.secretAccessor"
+  --role="roles/aiplatform.user" \
+  --condition=None >/dev/null
 
 if [[ "$PUBLIC_SERVICE" == "true" ]]; then
   ACCESS_FLAGS=(--allow-unauthenticated)
@@ -113,8 +87,7 @@ gcloud run services update "$SERVICE" \
   --project "$PROJECT" \
   --region "$REGION" \
   --service-account "$RUNTIME_SA" \
-  --update-env-vars GOOGLE_GENAI_USE_VERTEXAI=FALSE \
-  --update-secrets "GOOGLE_API_KEY=$SECRET_NAME:$SECRET_VERSION"
+  --update-env-vars "GOOGLE_GENAI_USE_VERTEXAI=TRUE,GOOGLE_CLOUD_PROJECT=$PROJECT,GOOGLE_CLOUD_LOCATION=$VERTEX_LOCATION"
 
 URL="$(gcloud run services describe "$SERVICE" \
   --project "$PROJECT" \

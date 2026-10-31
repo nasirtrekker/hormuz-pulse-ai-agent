@@ -36,28 +36,21 @@ the Python tool rather than silently converted into a forecast.
 ## Local development
 
 Requirements: Python 3.10 or later, [uv](https://docs.astral.sh/uv/getting-started/installation/),
-and a Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey).
-
-Create the environment and install the pinned direct dependency:
+the Google Cloud CLI, and a Google Cloud project with billing enabled. The app
+calls Gemini through Vertex AI using your Google identity, so there is no API
+key to store.
 
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
 uv venv --python 3.12 .venv
 uv pip install --python .venv/bin/python -r hormuz/requirements.txt
-```
-
-Copy `.env.example` to `.env` in the project root and put your key in it. `.env`
-is gitignored. Keep it in the project root, not in `hormuz/`, because
-`adk deploy` uploads the agent folder. Then load it and launch the ADK
-development UI:
-
-```bash
+cp .env.example .env        # .env is gitignored; edit the project ID if needed
+gcloud auth application-default login
 set -a; source .env; set +a
 .venv/bin/adk web
 ```
 
-Select `hormuz` in the UI and ask: “Predict Brent for the next 48 hours.”
-Do not commit API keys or put them in command-line arguments.
+Select `hormuz` in the UI and ask: "Predict Brent for the next 48 hours."
 
 Run the deterministic forecast tests:
 
@@ -69,8 +62,8 @@ Run the deterministic forecast tests:
 
 Deployment uses Google Cloud Build and the ADK `adk deploy cloud_run` command.
 The service is private by default, uses a dedicated Cloud Run service account,
-and reads the Gemini API key from Secret Manager. The API key is never written
-to the source tree or passed as a command-line argument.
+and calls Gemini through Vertex AI with that service account (`roles/aiplatform.user`).
+No API key is created, stored, or committed.
 
 ### One-time prerequisites
 
@@ -92,7 +85,7 @@ to the source tree or passed as a command-line argument.
    ```
 
 3. The deploying identity needs permission to enable APIs, deploy Cloud Run,
-   use the runtime service account, create/read secrets, and run Cloud Build.
+   use the runtime service account, grant IAM roles, and run Cloud Build.
    Ask the project administrator to grant the least-privilege roles required
    by the organization. ADK's Cloud Run deploy uses Cloud Build; its build
    service account must have `roles/cloudbuild.builds.builder`.
@@ -105,11 +98,9 @@ From the project directory:
 ./deploy.sh YOUR_PROJECT_ID [REGION]
 ```
 
-The default region is `europe-west2`. On first deployment, the script prompts
-for the Gemini API key and stores it in Secret Manager. Subsequent deployments
-reuse that secret version. The deployment pins the enabled Secret Manager version to the Cloud Run
-revision. Cloud Run requires authentication by default. To make the service
-public for a demo, explicitly opt in:
+The default region is `europe-west2`; Vertex AI uses the `global` location
+(override with `VERTEX_LOCATION`). Cloud Run requires authentication by default.
+To make the service public for a demo, explicitly opt in:
 
 ```bash
 PUBLIC_SERVICE=true ./deploy.sh YOUR_PROJECT_ID [REGION]
@@ -130,5 +121,4 @@ reliable licensed market data instead of treating web search as a price feed.
 Also add durable session storage only if the product needs conversation history.
 
 For incidents and request diagnostics, inspect the Cloud Run service logs in
-Cloud Logging. Rotate the key by adding a new Secret Manager version; do not
-copy it into source code or a deployment command.
+Cloud Logging.
