@@ -32,7 +32,7 @@ for a live briefing on the Strait of Hormuz.
 | 1️⃣ | Open the live link | Latest Brent close, 48-hour low, median and high | 🟢 none |
 | 2️⃣ | Type a price in "Try your own Brent price" and click **Recalculate range** | Range recomputed around your price | 🟢 none |
 | 3️⃣ | Read "How reliable is this range?" | Backtest: how often real outcomes fell inside the range | 🟢 none |
-| 4️⃣ | Chat in **Chat with the research team**: say hi, ask follow-ups, or ask to *predict* (a fresh briefing takes about 30 to 90 seconds) | Chat replies in seconds; briefings add answer checks (guardrails passed, quotes the computed range, disclaimer) | 🟡 Vertex AI, only when you send a message |
+| 4️⃣ | Chat in **Chat with the research team**: say hi, ask follow-ups, or ask to *predict* (a fresh briefing takes about 30 to 90 seconds) | Chat replies in seconds. A warning appears under an answer only if a check fails (range not quoted, prices far from the range, disclaimer missing); the full check counts are on `/ops` | 🟡 Vertex AI, only when you send a message |
 | 5️⃣ | Open **Agent ops** | Live traces, latency, guardrail counts, evaluation scores | 🟢 none |
 
 Cloud charges happen only when someone clicks **Ask**. Cloud Run scales to zero
@@ -152,6 +152,30 @@ flowchart TB
 
 **Other Google services used by the agents:** Vertex AI (Gemini), Grounding with Google Search, and optionally Model Armor. No Vertex AI Agent Engine, Vector Search or embeddings.
 
+### How each agent is built
+
+Every agent is an ADK `Agent(...)` in `hormuz/agent.py`. The same few parts make each one:
+
+| Part | What it is | Example |
+|---|---|---|
+| `model` | The Gemini model on Vertex AI (`GEMINI_MODEL`, set once as `MODEL`) | all six agents share it |
+| `instruction` | The system prompt. Placeholders such as `{news}` are filled from the session state when the agent runs | `predictor_agent` is told to call the range tool first and copy its numbers |
+| `tools` | What it may call: the built-in `google_search`, or a plain Python function | researchers get `google_search`; predictor and chat get Python functions |
+| `output_key` | The state name its reply is saved under, which later agents read | `news`, `sentiment`, `market`, `forecast`, `briefing` |
+| callbacks | Guardrail functions from `hormuz/guardrails.py` | `research_guard` on the researchers, `tool_output_guard` on tools, `egress_guard` on every reply |
+
+Build order in the file:
+
+1. **Tools first.** `historical_range_48h` and `current_brent_range` call the range model in `hormuz/stat_model.py`; `predict_48h` is an illustrative overlay. They are ordinary Python functions with type hints and docstrings, which ADK turns into tool definitions for Gemini.
+2. **Researchers.** `news_agent`, `sentiment_agent` and `data_agent` each get `google_search` and a prompt asking for a fixed format (`RISK LEVEL`, `SENTIMENT SCORE`, `BRENT PRICE`) so `research_guard` can validate it.
+3. **`collect`.** A `ParallelAgent` runs the three researchers at once.
+4. **`predictor_agent`.** Reads the three research outputs, calls the range tool and writes `forecast`.
+5. **`critic_agent`.** No tools. Writes the final `briefing` and must copy the range from the forecast.
+6. **`root_agent`.** A `SequentialAgent` of `collect`, predictor and critic, with `ingress_guard` as its `before_agent_callback`, so a blocked question never reaches a model.
+7. **`chat_agent`.** A separate single agent for greetings and follow-ups. It reads the latest briefing and research notes from the session state through optional placeholders, so it can answer without re-running the pipeline.
+
+`app/main.py` wraps `root_agent` or `chat_agent` in an ADK `Runner` with one shared `InMemorySessionService`; the session is what gives the chat its memory.
+
 ## ☁️ Which Google Cloud service does what
 
 | Service | Job in this app | When it costs money |
@@ -220,7 +244,7 @@ flowchart TB
 | File | Job |
 |---|---|
 | `app/main.py` | FastAPI service: endpoints, router, chat sessions, data refresh, backtest cache, rate limiting, traces |
-| `app/static/index.html`, `app.js`, `style.css` | the dashboard (canvas chart, ask box, answer checks), no external libraries |
+| `app/static/index.html`, `app.js`, `style.css` | the dashboard (canvas chart, chat box, warnings when an answer check fails), no external libraries |
 | `app/static/ops.html`, `ops.js` | the ops page: stat panels, latency bars, guardrail counts, per-agent trace timeline, evaluation |
 | `hormuz/market_data.py` | loads and refreshes Brent and OVX series from FRED |
 | `hormuz/stat_model.py` | computes the 48-hour range from standardised historical returns |

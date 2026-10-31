@@ -182,19 +182,14 @@ $("newchat").addEventListener("click", () => {
   chat = { sid: null, msgs: [] }; save(); $("chatlog").replaceChildren();
 });
 
+// Internal pass/fail metrics live on /ops; here only show what a reader must act on.
 function showChecks(r, box) {
   const add = (cls, text) => { const s = document.createElement("span"); s.className = "check " + cls; s.textContent = text; box.append(s); };
-  if (r.blocked) { add("bad", "🚫 Blocked by guardrails before any model ran"); return; }
+  if (r.blocked) { add("bad", "🚫 This message was not sent to the model"); return; }
   const c = r.checks || {};
-  add("ok", "🛡️ Guardrails passed");
-  if (r.mode === "chat") add("na", "💬 Chat reply");
-  if (r.mode === "chat" && c.range_quoted == null) { if (r.trace_id) add("na", `🔎 trace ${r.trace_id}`); return; }
-  if (c.range_quoted === true) add("ok", "🧮 Quotes the computed range");
-  else if (c.range_quoted === false) add("bad", "⚠️ Does not quote the computed range: rely on the numbers above");
-  else add("na", "ℹ️ Range tool not used in this answer");
-  if (c.off_range_figures) add("bad", `⚠️ ${c.off_range_figures} price figure(s) far from the computed range: verify`);
-  if (r.mode !== "chat") add(c.disclaimer ? "ok" : "bad", c.disclaimer ? "📌 Disclaimer present" : "⚠️ Disclaimer missing");
-  if (r.trace_id) add("na", `🔎 trace ${r.trace_id}`);
+  if (c.range_quoted === false) add("bad", "⚠️ This answer does not quote the computed range: rely on the range shown above");
+  if (c.off_range_figures) add("bad", "⚠️ Some prices in this answer are far from the computed range: verify them");
+  if (r.mode !== "chat" && c.disclaimer === false) add("bad", "⚠️ Not financial advice: for information only");
 }
 
 document.querySelectorAll("#chips .chip").forEach((c) => c.addEventListener("click", () => { $("question").value = c.textContent; send(); }));
