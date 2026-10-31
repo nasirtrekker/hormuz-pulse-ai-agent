@@ -100,7 +100,7 @@ flowchart LR
     subgraph P[collect: run in parallel]
         N[news_agent] ~~~ S[sentiment_agent] ~~~ D[data_agent]
     end
-    P --> R{{Research guard}} --> PR[predictor_agent<br/>historical_range_48h tool] --> T{{Tool guard}} --> C[critic_agent] --> E{{Egress guard}} --> A[Briefing + answer checks]
+    P --> R{{Research guard}} --> PR[predictor_agent<br/>range and price tools] --> T{{Tool guard}} --> C[critic_agent] --> E{{Egress guard}} --> A[Briefing + answer checks]
 ```
 
 | Tool | Used for |
@@ -268,14 +268,14 @@ model calls:
 
 | Job and step | What it checks | Result |
 |---|---|---|
-| test: unit tests | 59 tests: range model, backtest, API, telemetry, guardrails, agent wiring | ✅ |
+| test: unit tests | 61 tests: range model, backtest, API, telemetry, guardrails, agent wiring | ✅ |
 | test: attack corpus | known injection, PII and secret strings stay blocked or redacted | ✅ |
 | test: `adk eval` | ADK evaluation in `evals/guardrails.evalset.json` | ✅ |
 | test: build inputs, script syntax | Dockerfile and requirements exist, shell scripts parse | ✅ |
 | secrets: gitleaks | no credentials in history (`.gitleaks.toml` allows only the fake test keys) | ✅ |
 
 The badge at the top shows the real status of the latest run. Deploys are separate
-(`deploy.yml`, manual, after CI).
+(`deploy.yml`): they run after CI passes on `main`, or manually, and are skipped until the `GCP_WORKLOAD_IDENTITY_PROVIDER` repository variable is set (see CI/CD and operations).
 
 ## 📈 Evaluation metrics
 
@@ -285,7 +285,7 @@ The badge at the top shows the real status of the latest run. Deploys are separa
 | Average range width | 8.45% of price | dashboard |
 | Point error: no change vs momentum | 2.70% vs 2.72% 🟡 | dashboard |
 | Guardrail corpus | 14 of 14 🟢 | `/ops` |
-| News (GPR) predictive power | none, p = 0.36 and 0.73 🔴 | `/ops` |
+| News (GPR) predictive power | none, p = 0.36 (direction) and 0.73 (size) 🔴 | `/ops` |
 | Agent latency, completion, range-quoted rate | live | `/ops` |
 
 Traces are held in memory per server instance and reset on restart.
@@ -325,7 +325,7 @@ deterministic code, not prompts, and are covered by `tests/test_guardrails.py`.
 | Checkpoint | Callback | What it does |
 |---|---|---|
 | Ingress | `before_agent_callback` on `root_agent` | Blocks empty, over-1000-character, control-character, attachment and instruction-override requests before any model call. |
-| Research output (web search) | `after_agent_callback` on the 3 research agents | Treats web-derived text as untrusted: strips control characters, removes injection phrases and secrets, caps length, and appends `VALIDATION FAILED` if `RISK LEVEL`, `SENTIMENT SCORE` (-1..1) or `BRENT PRICE` (10..500) is missing or implausible. The predictor then refuses to compute. |
+| Research output (web search) | `after_agent_callback` on the 3 research agents | Treats web-derived text as untrusted: strips control characters, removes injection phrases and secrets, caps length, and appends `VALIDATION FAILED` if `RISK LEVEL`, `SENTIMENT SCORE` (-1..1), `BRENT PRICE` (10..500) or `BRENT 5D CHANGE %` (-50..50) is missing or implausible. The predictor then refuses to compute. |
 | Tool output | `after_tool_callback`, `on_tool_error_callback` on `predictor_agent` | Rejects non-finite or implausible results (forecast outside 50%..150% of the input price) and reports invalid inputs to the model instead of crashing the run. |
 | Egress | `after_model_callback` on every LLM agent | Redacts API keys, tokens and private keys, caps output length, and appends the not-financial-advice disclaimer to the final briefing if missing. |
 
@@ -398,14 +398,15 @@ Quantiles are refit yearly using only past data and scored with pinball loss.
 | Realised-vol empirical | baseline | 79.4% |
 | Implied-vol (OVX) empirical | -2.0% | 76.5% |
 | Blend of both (used) | -1.7% | 78.6% |
-| Gradient boosting, market features | -0.2% | n/a |
-| Gradient boosting, market + news (GPR) | -0.2% | n/a |
+| Gradient boosting, market features | -0.2% | 76.4% |
+| Gradient boosting, market + news (GPR) | -0.2% | 75.5% |
+| Gradient boosting, market + news, implied-vol scale | -1.3% | 75.4% |
 
 Findings, stated plainly:
 - The range is calibrated, and options-implied volatility improves it modestly.
 - The Geopolitical Risk news index showed no predictive power for the next 2-day
-  direction (Spearman p between 0.36 and 0.98) and added nothing in the models.
-- No model beat "price stays the same" as a point forecast. The app therefore shows a
+  direction (Spearman p from 0.36 to 0.98 across its three variants) and added nothing in the models.
+- No model meaningfully beat "price stays the same" as a point forecast (median error 2.79% for the range models' median vs 2.80% for no change). The app therefore shows a
   range, not a price target.
 - LLM sentiment cannot be backtested historically, so it is a labelled narrative and
   scenario input (`predict_48h`), not a validated predictor.
@@ -418,7 +419,7 @@ The same results are served at `/api/evidence` and shown in the dashboard.
 | Stage | Trigger | What runs |
 |---|---|---|
 | CI | every pull request and push to `main` | unit tests, attack-corpus regression (`hormuz/data/attack_corpus.json`), `adk eval` on `evals/guardrails.evalset.json`, secret scan (gitleaks), script syntax checks. No cloud credentials, no model calls. |
-| CD | CI passes on `main`, or manual run | keyless Workload Identity Federation, then `deploy.sh` with `SKIP_BOOTSTRAP=true`, then a check that the new revision is ready. Uses the `production` GitHub environment, so you can require manual approval there. |
+| CD | CI passes on `main`, or manual run | keyless Workload Identity Federation, then `deploy.sh` with `SKIP_BOOTSTRAP=true`, then a check that the new revision is ready. Uses the `production` GitHub environment, so you can require manual approval there. Skipped until the `GCP_WORKLOAD_IDENTITY_PROVIDER` repository variable exists. |
 | Dependencies | weekly | Dependabot for pip and GitHub Actions. |
 
 Separation of duties: the CI deployer service account can deploy Cloud Run
