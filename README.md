@@ -302,6 +302,20 @@ The dashboard needs no credentials. For the briefing run
 `gcloud auth application-default login` and enable `aiplatform.googleapis.com`.
 Deploy with `PUBLIC_SERVICE=true ./deploy.sh <project-id>`.
 
+### Test, deploy and push in one command
+
+Run from the repository root after a one-time `gcloud auth login`. It stops at the first failure:
+
+```bash
+.venv/bin/python -W ignore -m unittest discover -s tests \
+ && CLOUDSDK_PYTHON="$PWD/.venv/bin/python" PATH="$HOME/google-cloud-sdk/bin:$PATH" PUBLIC_SERVICE=true ./deploy.sh hormuz-pulse-agent \
+ && git add -A && (git diff --cached --quiet || git commit -m "Update") && git push
+```
+
+The Google Cloud services this deploys to, and what each one does, are in
+[Which Google Cloud service does what](#️-which-google-cloud-service-does-what) and the
+[architecture diagram](#google-cloud-architecture) above.
+
 ## Guardrail callbacks in detail
 
 All checks live in `hormuz/guardrails.py` and run as ADK callbacks. They are
