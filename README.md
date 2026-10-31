@@ -60,8 +60,9 @@ calibrated but no method beat "the price stays the same" for direction.
    typed in by hand (`hormuz/market_data.py`).
 2. **Test what predicts.** `scripts/experiment.py` compared realised volatility,
    options-implied volatility (OVX), gradient-boosted models and a news index on
-   1,503 unseen two-day moves. Only OVX helped the range; news and ML did not
-   beat "price stays the same" for direction.
+   1,503 unseen two-day moves. Only OVX helped the range; news and the
+   gradient-boosted models did not beat "price stays the same" for direction, so
+   they were rejected. This script is offline: no ML model runs in the app.
 3. **Range model.** The winner is a blend of realised and implied volatility that
    scales historical quantiles (`hormuz/stat_model.py`), checked by a walk-forward
    backtest (`hormuz/backtest.py`).
