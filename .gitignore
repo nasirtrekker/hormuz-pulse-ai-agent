@@ -14,3 +14,4 @@ __pycache__/
 *credentials*.json
 .config/
 .gcloud/
+!.env.example

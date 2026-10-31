@@ -46,13 +46,13 @@ uv venv --python 3.12 .venv
 uv pip install --python .venv/bin/python -r hormuz/requirements.txt
 ```
 
-In the project directory, set the API key without putting it in shell history,
-then launch the ADK development UI:
+Copy `.env.example` to `.env` in the project root and put your key in it. `.env`
+is gitignored. Keep it in the project root, not in `hormuz/`, because
+`adk deploy` uploads the agent folder. Then load it and launch the ADK
+development UI:
 
 ```bash
-read -rs "GOOGLE_API_KEY?Gemini API key: "
-printf '\n'
-export GOOGLE_API_KEY GOOGLE_GENAI_USE_VERTEXAI=FALSE
+set -a; source .env; set +a
 .venv/bin/adk web
 ```
 
