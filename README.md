@@ -17,6 +17,15 @@ for a live briefing on the Strait of Hormuz.
 
 ### 🌍 Live app: https://hormuz-pulse-2o4l63xkqq-nw.a.run.app
 
+## 🎨 Demo slides (sketch)
+
+Editable source: [docs/demo-slides.drawio](docs/demo-slides.drawio).
+
+![Slide 1: What it does](docs/slide-1.png)
+![Slide 2: Agent architecture](docs/slide-2.png)
+![Slide 3: Google Cloud architecture](docs/slide-3.png)
+![Slide 4: Screenshots](docs/slide-4.png)
+
 ## 🖥️ The two pages
 
 ### 1. Dashboard (`/`): simple, for everyone
