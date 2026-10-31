@@ -92,3 +92,19 @@ class StatModelTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FuturesFeedTests(unittest.TestCase):
+    def _feed(self, closes):
+        import json
+        return json.dumps({"chart": {"result": [{"timestamp": [1761782400 + 86400 * i for i in range(len(closes))],
+                                                  "indicators": {"quote": [{"close": closes}]}}]}})
+
+    def test_takes_latest_non_null_close(self):
+        from hormuz import market_data
+        date, price = market_data.parse_futures(self._feed([114.88, 117.64, None]), 123.1)
+        self.assertEqual(price, 117.64)
+
+    def test_rejects_implausible_value(self):
+        from hormuz import market_data
+        self.assertIsNone(market_data.parse_futures(self._feed([40.0]), 123.1))

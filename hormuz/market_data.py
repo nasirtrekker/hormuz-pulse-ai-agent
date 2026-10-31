@@ -3,8 +3,12 @@
 A snapshot ships with the app so it works offline; refresh_snapshot() re-downloads it.
 """
 import csv
+import json
 import pathlib
+import threading
+import time
 import urllib.request
+from datetime import datetime, timezone
 
 FRED_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DCOILBRENTEU"
 OVX_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=OVXCLS"
@@ -86,3 +90,41 @@ def refresh_ovx_snapshot(path: pathlib.Path = OVX_SNAPSHOT) -> int:
 if __name__ == "__main__":
     print(f"{refresh_snapshot()} Brent observations written to {SNAPSHOT}")
     print(f"{refresh_ovx_snapshot()} OVX observations written to {OVX_SNAPSHOT}")
+
+
+FUTURES_URL = "https://query1.finance.yahoo.com/v8/finance/chart/BZ=F?range=7d&interval=1d"
+_futures_cache: dict = {"at": 0.0, "value": None}
+_futures_lock = threading.Lock()
+
+
+def parse_futures(text: str, reference: float):
+    """Latest daily close of front-month Brent futures (BZ=F) as (date, price), or None.
+
+    Rejects values that are not finite, outside 10..500 USD, or more than 35% away from the
+    reference spot price, so a bad feed can never move the anchor far.
+    """
+    result = json.loads(text)["chart"]["result"][0]
+    closes = result["indicators"]["quote"][0]["close"]
+    for ts, close in reversed(list(zip(result["timestamp"], closes))):
+        if close is None:
+            continue
+        price = float(close)
+        if not (10 <= price <= 500) or abs(price / reference - 1) > 0.35:
+            return None
+        return datetime.fromtimestamp(ts, timezone.utc).date().isoformat(), round(price, 2)
+    return None
+
+
+def latest_futures(reference: float, ttl: int = 900):
+    """Cached latest Brent futures close, or None when the unofficial public feed is unavailable."""
+    with _futures_lock:
+        if time.time() - _futures_cache["at"] < ttl:
+            return _futures_cache["value"]
+        _futures_cache["at"] = time.time()
+        try:
+            req = urllib.request.Request(FUTURES_URL, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                _futures_cache["value"] = parse_futures(resp.read().decode("utf-8"), reference)
+        except Exception:
+            _futures_cache["value"] = None
+        return _futures_cache["value"]

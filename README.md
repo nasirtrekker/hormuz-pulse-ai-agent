@@ -34,7 +34,7 @@ Built by **Nasir Uddin** ([@nasirtrekker](https://github.com/nasirtrekker)).
 | 1️⃣ | Open the live link | Latest Brent close, 48-hour low, median and high | 🟢 none |
 | 2️⃣ | Type a price in "Try your own Brent price" and click **Recalculate range** | Range recomputed around your price | 🟢 none |
 | 3️⃣ | Read "How reliable is this range?" | Backtest: how often real outcomes fell inside the range | 🟢 none |
-| 4️⃣ | Chat in **Chat with the research team**: say hi, ask follow-ups, or ask to *predict* (a fresh briefing takes 1 to 3 minutes) | Chat replies in seconds; briefings add answer checks (guardrails passed, quotes the computed range, disclaimer) | 🟡 Vertex AI, only when you send a message |
+| 4️⃣ | Chat in **Chat with the research team**: say hi, ask follow-ups, or ask to *predict* (a fresh briefing takes about 30 to 90 seconds) | Chat replies in seconds; briefings add answer checks (guardrails passed, quotes the computed range, disclaimer) | 🟡 Vertex AI, only when you send a message |
 | 5️⃣ | Open **Agent ops** | Live traces, latency, guardrail counts, evaluation scores | 🟢 none |
 
 Cloud charges happen only when someone clicks **Ask**. Cloud Run scales to zero
@@ -50,6 +50,8 @@ calibrated but no method beat "the price stays the same" for direction.
 | Does it remember the conversation? | Yes. The browser sends a random session id; the server keeps an ADK session (messages and the latest briefing) in memory for 1 hour, up to 30 turns. |
 | Where is the dialogue saved? | Server RAM only, per Cloud Run instance (session affinity keeps a visitor on one instance). The browser keeps the visible transcript in `sessionStorage`. Nothing is written to a database or disk, and "New chat" clears it. A restart loses it. |
 | How does it pick chat or research? | `route()` in `app/main.py`: words like *predict, forecast, brief, research, how risky, what is driving* start the full research pipeline; everything else (greetings, "why is the range so wide?") goes to `chat_agent`. |
+| Which Brent price is used? | The range starts from the latest Brent **futures** close (the contract quoted on Google and exchanges), fetched from Yahoo Finance's unofficial public feed, cached 15 minutes, sanity-checked, and falling back to FRED spot if unavailable. The chart line is FRED Europe Brent **spot**, which lags by days and can differ by several dollars. |
+| Why does a briefing take 30 to 90 seconds? | Five model stages run in order: three search agents in parallel (about 20 s, the slowest sets the time), then the predictor (about 5 s), then the critic (about 10 s). Chat replies skip this and take a few seconds. Per-agent timings are on `/ops`. |
 | Where are the system prompts? | In `hormuz/agent.py`: the `instruction=` of each agent (`news_agent`, `sentiment_agent`, `data_agent`, `predictor_agent`, `critic_agent`, `chat_agent`). The user prompt is the message you type; web text is passed to later agents as untrusted data. |
 | Is it RAG? Does it use embeddings? | No. There is no vector database and no embedding model. Facts come from Google Search grounding in Gemini and from a Python tool over public FRED data. The research notes and latest briefing are placed in the chat prompt as session state. |
 

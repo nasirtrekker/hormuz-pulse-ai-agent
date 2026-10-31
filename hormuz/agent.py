@@ -15,6 +15,7 @@ from google.adk.agents import Agent, ParallelAgent, SequentialAgent
 from google.adk.tools import google_search
 
 from . import guardrails, stat_model
+from . import market_data
 from .market_data import align_implied_vol, load_history, load_ovx
 
 MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
@@ -54,9 +55,12 @@ def current_brent_range() -> dict:
       volatility used. Use this for any current price or range figure in conversation.
     """
     historical_range_48h(100.0)  # loads the public series once
-    last = _HISTORY[-1]
+    quote = market_data.latest_futures(_HISTORY[-1])
+    last = quote[1] if quote else _HISTORY[-1]
     result = historical_range_48h(last)
     result["last_price"] = round(last, 2)
+    result["price_basis"] = (f"Brent futures close {quote[0]}" if quote
+                             else "FRED Europe Brent spot, last available close")
     return result
 
 

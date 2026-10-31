@@ -167,8 +167,15 @@ def forecast(price: Optional[float] = None) -> dict:
     data.refresh_if_stale()
     if price is not None and not (10 <= price <= 500):
         raise HTTPException(422, "price must be between 10 and 500 USD per barrel")
+    as_of, anchored_on = data.dates[-1], "latest FRED spot close"
+    if price is not None:
+        anchored_on = "your price"
+    else:
+        quote = market_data.latest_futures(data.prices[-1])
+        if quote:
+            as_of, price, anchored_on = quote[0], quote[1], "latest Brent futures close"
     result = stat_model.forecast_blend(data.prices, data.implied, data.implied_now, anchor=price)
-    result.update({"as_of": data.dates[-1], "anchored_on": "your price" if price else "latest FRED close",
+    result.update({"as_of": as_of, "anchored_on": anchored_on, "spot_as_of": data.dates[-1],
                    "horizon": "2 trading days", "source": data.source})
     return result
 

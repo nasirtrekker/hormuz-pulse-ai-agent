@@ -90,7 +90,7 @@ function drawChart(history, f) {
   ctx.beginPath(); ctx.moveTo(x0, y(f.last_price)); ctx.lineTo(x1, y(f.median)); ctx.stroke(); ctx.setLineDash([]);
   ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(x0, y(f.last_price), 4, 0, 7); ctx.fill();
   $("chartnote").textContent =
-    `Line: last ${prices.length} trading days. Shaded cone: 80% range two trading days ahead ($${fmt(f.low)} to $${fmt(f.high)}).`;
+    `Line: FRED Europe Brent spot, last ${prices.length} trading days (latest spot ${f.spot_as_of}). Cone: 80% range two trading days ahead of the ${f.anchored_on}, $${fmt(f.low)} to $${fmt(f.high)}. Spot and futures can differ by several dollars.`;
 }
 
 let historyData = null;
@@ -162,7 +162,7 @@ async function send() {
   button.disabled = true; input.value = "";
   bubble("user", text); chat.msgs.push({ role: "user", text });
   const wait = bubble("bot", ""); const spin = document.createElement("span"); spin.className = "spin";
-  wait.append(spin, "Thinking… a fresh briefing can take 1 to 3 minutes.");
+  wait.append(spin, "Thinking… a fresh briefing usually takes 30 to 90 seconds.");
   try {
     const r = await getJSON("/api/brief", {
       method: "POST", headers: { "Content-Type": "application/json" },
