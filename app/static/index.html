@@ -32,7 +32,13 @@
   button:disabled { opacity:.55; cursor:progress; }
   .chips { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0 0; }
   .chip { background:rgba(255,255,255,.05); color:var(--text); border:1px solid var(--line); font-weight:500; padding:6px 12px; border-radius:999px; font-size:.85rem; }
-  table { width:100%; border-collapse:collapse; } td,th { text-align:left; padding:9px 6px; border-bottom:1px solid var(--line); }
+  .scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  table { width:100%; border-collapse:collapse; min-width:420px; font-variant-numeric:tabular-nums; }
+  td,th { text-align:left; padding:10px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  td:first-child, th:first-child { width:58%; }
+  td:not(:first-child), th:not(:first-child) { text-align:right; white-space:nowrap; }
+  td:not(:first-child) { font-weight:600; }
+  tbody tr:hover, #bt tr:hover, #ev tr:hover { background:rgba(255,255,255,.03); }
   th { color:var(--mute); font-weight:500; font-size:.85rem; } tr:last-child td { border-bottom:0; }
   .answer { white-space:pre-wrap; word-wrap:break-word; margin:16px 0 0; padding:16px; border-radius:12px; background:rgba(255,255,255,.03); border:1px solid var(--line); display:none; }
   .answer.show { display:block; }
@@ -106,13 +112,13 @@
 
   <section class="card">
     <h2>How reliable is this range?</h2>
-    <table id="bt"><tr><td class="note">Running walk-forward backtest…</td></tr></table>
+    <div class="scroll"><table id="bt"><tr><td class="note">Running walk-forward backtest…</td></tr></table></div>
     <p class="note">Every past forecast used only data available at the time. The range is calibrated, but no point forecast beat "the price stays the same", so treat it as a risk range, not a prediction of direction.</p>
   </section>
 
   <section class="card">
     <h2>Does news predict the price? What we tested</h2>
-    <table id="ev"><tr><td class="note">Loading experiment results…</td></tr></table>
+    <div class="scroll"><table id="ev"><tr><td class="note">Loading experiment results…</td></tr></table></div>
     <p class="note" id="evnote"></p>
   </section>
 
