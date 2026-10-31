@@ -17,7 +17,7 @@
     </div>
   </nav>
   <header class="hero">
-    <span class="badge"><i></i> Public data · backtested · no made-up numbers</span>
+    <span class="badge"><i></i> Public data · backtested range</span>
     <h1>Hormuz Pulse</h1>
     <p class="sub">🛢️ Where could Brent crude be in 48 hours? A range built from 39 years of public prices and the oil options market, plus 🤖 an AI research team that reads the latest Strait of Hormuz news.</p>
   </header>
@@ -54,16 +54,6 @@
     <h2><span class="emoji">🎯</span>How reliable is this range?</h2>
     <div class="kpis" id="kpis"><div class="note">Running walk-forward backtest…</div></div>
     <div class="verdict">Every past forecast used only data available at the time. The range is calibrated, but no point forecast beat "the price stays the same", so treat it as a risk range, not a prediction of direction. <a href="/ops">See all evaluation metrics</a>.</div>
-  </section>
-
-  <section class="card">
-    <h2><span class="emoji">🛡️</span>Built to be trusted</h2>
-    <div class="trust">
-      <div><b>🚫 Prompt-injection guard</b>Hidden or hostile instructions are blocked on the way in, and stripped from web research.</div>
-      <div><b>🔒 Privacy</b>Emails and card numbers are blocked. Questions and IP addresses are never stored.</div>
-      <div><b>🧮 No made-up numbers</b>Prices come from public data. Each answer is checked for whether it quotes the computed range.</div>
-      <div><b>🧪 Tested in public</b>Guardrails and the model are scored on <a href="/ops">the ops page</a> and in CI.</div>
-    </div>
   </section>
 
   <footer>Educational only, not financial advice. Data: FRED (Brent spot history, CBOE crude oil volatility OVX, VIX, dollar index) the latest Brent futures close (Yahoo Finance, unofficial feed, falls back to FRED) and the Caldara-Iacoviello Geopolitical Risk Index. Briefings use Google Search and Gemini and may contain errors: check the sources.</footer>

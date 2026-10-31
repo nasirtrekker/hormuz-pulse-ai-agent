@@ -246,7 +246,7 @@ Public use is protected by per-IP and daily briefing limits
 (`BRIEFS_PER_IP_PER_HOUR`, `BRIEFS_PER_DAY`, per instance), the guardrails, a
 300 s timeout and at most 3 instances.
 
-## 🛡️ Guardrails: injection, privacy, no hallucination
+## 🛡️ Guardrails and answer checks
 
 | Risk | Control | Where | Status |
 |---|---|---|---|
@@ -254,12 +254,10 @@ Public use is protected by per-IP and daily briefing limits
 | 🕸️ Injection hidden in web results | web text treated as untrusted: phrases removed, length capped, format validated | `research_guard` | 🟢 2 of 2 |
 | 🔒 Personal data | emails and card-like numbers blocked; questions and IPs are never stored | `check_input`, `telemetry.py` | 🟢 included in the 8 |
 | 🔑 Secret leakage | API keys and tokens redacted from every model output | `egress_guard` | 🟢 2 of 2 |
-| 🧮 Hallucinated numbers | the range comes from code, not the model; each answer is checked for quoting that range, for off-range dollar figures and for the disclaimer | `telemetry.check_answer` | 🟡 reported per answer |
+| 🧮 Wrong or invented prices | the range is computed by code and the prompt tells the model to copy it; each answer is then checked for quoting it, for off-range dollar figures and for the disclaimer | `telemetry.check_answer` | 🟡 flags problems, does not prevent them |
 | 🧰 Bad tool output | non-finite or implausible results rejected | `tool_output_guard` | 🟢 unit tested |
 
-The checks are deterministic code, not prompts. The attack corpus runs in CI on
-every push and live on `/ops`. The answer checks reduce hallucination risk but
-cannot prove every sentence in a briefing is true: sources must still be read.
+The input and output filters are deterministic code, not prompts. The attack corpus is small (14 cases) and runs in CI and on `/ops`; passing it does not prove the guardrails stop every attack. The answer checks only look at the computed range, price figures and the disclaimer; they cannot verify the news or sentiment text, so sources must still be read. Model Armor is off unless enabled.
 
 ## ✅ CI: what runs when you push
 
@@ -304,25 +302,7 @@ The dashboard needs no credentials. For the briefing run
 `gcloud auth application-default login` and enable `aiplatform.googleapis.com`.
 Deploy with `PUBLIC_SERVICE=true ./deploy.sh <project-id>`.
 
-## Multi-agent workflow
-
-The ADK harness is defined in `hormuz/agent.py`:
-
-1. `collect` is a `ParallelAgent`: `news_agent`, `sentiment_agent`, and
-   `data_agent` each use Gemini and Google Search; their results are saved under
-   the `news`, `sentiment`, and `market` session-state keys.
-2. `predictor_agent` runs after collection. Gemini extracts the inputs and calls
-   the Python `predict_48h` tool for the base and high-risk scenarios.
-3. `critic_agent` runs last, checks the inputs and scenario, and writes the
-   briefing.
-4. `root_agent` is a `SequentialAgent` that coordinates those three stages.
-
-Gemini does not train a model or independently validate the numerical formula.
-The agents depend on search results and language-model extraction, so inputs
-can be incomplete or wrong. Missing or invalid numerical inputs are rejected by
-the Python tool rather than silently converted into a forecast.
-
-## Guardrails (ingress, tool output, egress)
+## Guardrail callbacks in detail
 
 All checks live in `hormuz/guardrails.py` and run as ADK callbacks. They are
 deterministic code, not prompts, and are covered by `tests/test_guardrails.py`.
@@ -376,11 +356,12 @@ All market data is public and no API key is needed.
 
 | Item | Source | Used for |
 |---|---|---|
-| Brent daily spot, 1987 to 2026-10-27 (9,117 valid daily prices) | FRED `DCOILBRENTEU` | the 48-hour range |
+| Brent daily spot since 1987 | FRED `DCOILBRENTEU` | the 48-hour range |
 | Crude oil implied volatility (OVX), from 2007 | FRED `OVXCLS` | the 48-hour range (options-market expectation) |
 | VIX, USD index | FRED `VIXCLS`, `DTWEXBGS` | experiment features only |
 | Geopolitical Risk Index, daily, from newspaper coverage, 1985 on | Caldara and Iacoviello (matteoiacoviello.com/gpr.htm) | experiment feature only |
-| Latest price, news, sentiment | Gemini with Google Search grounding, at request time | the starting price and the narrative |
+| Latest Brent futures close, last 2 years | Yahoo Finance public chart endpoint (unofficial, no SLA), cached 15 min | the starting price and the chart; FRED is the fallback |
+| News and sentiment | Gemini with Google Search grounding, at request time | the narrative only, not the numbers |
 
 Snapshots are in `hormuz/data/`; refresh Brent and OVX with `python -m hormuz.market_data`.
 
@@ -416,27 +397,6 @@ Findings, stated plainly:
 - A crisis can move prices beyond anything in the history.
 
 The same results are served at `/api/evidence` and shown in the dashboard.
-
-## Agent pipeline and guardrails
-
-```mermaid
-flowchart TD
-    U[User] --> I[Ingress guard + Model Armor input template]
-    I -->|blocked| X[Refusal message]
-    I --> P
-    subgraph P[ParallelAgent: research with Google Search]
-        N[news] ~~~ S[sentiment] ~~~ M[market data]
-    end
-    P --> RG[Research guard: sanitize, range-check, Model Armor input template]
-    RG --> PR[Predictor: data-driven range tool + labelled scenario overlay, tool-output guard]
-    PR --> C[Critic]
-    C --> E[Egress guard: redact, disclaimer, Model Armor output template]
-    E --> O[Briefing]
-```
-
-The pipeline is an ADK `SequentialAgent` in `hormuz/agent.py`. Agents share state
-through `output_key` and `{placeholders}`. The range comes from the statistical model above; the scenario overlay is a
-labelled fixed formula, not an ML model. Gemini only researches and critiques.
 
 ## CI/CD and operations
 
@@ -553,15 +513,15 @@ PUBLIC_SERVICE=true ./deploy.sh YOUR_PROJECT_ID [REGION]
 
 Public access can incur Vertex AI costs, billed to the project: each briefing runs
 several Gemini calls with Google Search. The limits above cap this but are per
-instance. Briefing sessions are in memory and deleted after each request.
+instance. Chat sessions are held in memory for up to an hour.
 Model Armor is optional: create the templates first, then deploy with
 `ENABLE_MODEL_ARMOR=true`, otherwise it fails closed and blocks every request.
 
 ## Production limitations and next steps
 
 The 48-hour range is backtested, but the price series is daily spot data that
-FRED updates with a delay, and the briefing's live price comes from web search,
-not a licensed feed. Before using this for financial decisions: add a licensed
+FRED updates with a delay, and the starting price comes from an unofficial public
+futures feed, not a licensed one. Before using this for financial decisions: add a licensed
 real-time price source, test whether news-volume features (for example GDELT)
 improve the backtest, and monitor calibration over time. Limits are per instance;
 use Cloud Armor or a shared store if abuse becomes a problem.
