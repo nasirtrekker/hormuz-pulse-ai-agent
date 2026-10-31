@@ -206,7 +206,7 @@ flowchart TB
         CR[Cloud Run service hormuz-pulse<br/>FastAPI: app/main.py<br/>runtime service account]
         CR -->|aiplatform.user| VX[Vertex AI<br/>Gemini models]
         VX --- GS[Grounding with Google Search]
-        CR -.optional modelarmor.user.-> MA[Model Armor<br/>input and output templates]
+        CR -. "optional, role modelarmor.user" .-> MA[Model Armor<br/>input and output templates]
         CR -->|stdout logs, no question text| LG[Cloud Logging]
         CR --- MEM[(Instance RAM<br/>chat sessions, traces)]
     end
