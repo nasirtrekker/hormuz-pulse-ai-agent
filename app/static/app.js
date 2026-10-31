@@ -13,9 +13,9 @@ async function getJSON(url, options) {
   return response.json();
 }
 
-function stat(key, value) {
+function stat(key, value, kind = "") {
   const box = document.createElement("div");
-  box.className = "stat";
+  box.className = "stat " + kind;
   const v = document.createElement("div"); v.className = "v"; v.textContent = value;
   const k = document.createElement("div"); k.className = "k"; k.textContent = key;
   box.append(v, k);
@@ -26,9 +26,9 @@ function showStats(f) {
   const grid = $("stats");
   grid.replaceChildren(
     stat(`Brent, ${f.as_of} (${f.anchored_on})`, `$${fmt(f.last_price)}`),
-    stat("48h low (10th percentile)", `$${fmt(f.low)}`),
-    stat("48h median", `$${fmt(f.median)}`),
-    stat("48h high (90th percentile)", `$${fmt(f.high)}`),
+    stat("48h low (10th percentile)", `$${fmt(f.low)}`, "low"),
+    stat("48h median", `$${fmt(f.median)}`, "mid"),
+    stat("48h high (90th percentile)", `$${fmt(f.high)}`, "high"),
     stat("Daily volatility used (realised " + f.realised_daily_vol_pct + "%, options-implied " + f.implied_daily_vol_pct + "%)", `${f.daily_vol_pct}%`),
   );
 }
@@ -49,7 +49,7 @@ function drawChart(history, f) {
   const x = (i) => pad.l + (i / (prices.length - 1 + ahead)) * (w - pad.l - pad.r);
   const y = (p) => pad.t + (1 - (p - lo) / (hi - lo)) * (h - pad.t - pad.b);
 
-  ctx.strokeStyle = "#2a3544"; ctx.fillStyle = "#8b98a8"; ctx.font = "12px system-ui"; ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(120,150,190,.18)"; ctx.fillStyle = "#93a3b8"; ctx.font = "12px system-ui"; ctx.lineWidth = 1;
   for (let k = 0; k <= 4; k++) {
     const p = lo + ((hi - lo) * k) / 4;
     ctx.beginPath(); ctx.moveTo(pad.l, y(p)); ctx.lineTo(w - pad.r, y(p)); ctx.stroke();
@@ -58,15 +58,22 @@ function drawChart(history, f) {
   ctx.fillText(history.dates[history.dates.length - prices.length], pad.l, h - 6);
   ctx.fillText(history.dates[history.dates.length - 1], x(prices.length - 1) - 30, h - 6);
 
-  ctx.strokeStyle = "#4cc2ff"; ctx.lineWidth = 2; ctx.beginPath();
+  const grad = ctx.createLinearGradient(0, pad.t, 0, h - pad.b);
+  grad.addColorStop(0, "rgba(56,189,248,.28)"); grad.addColorStop(1, "rgba(56,189,248,0)");
+  ctx.beginPath();
+  prices.forEach((p, i) => (i ? ctx.lineTo(x(i), y(p)) : ctx.moveTo(x(i), y(p))));
+  ctx.lineTo(x(prices.length - 1), h - pad.b); ctx.lineTo(x(0), h - pad.b); ctx.closePath();
+  ctx.fillStyle = grad; ctx.fill();
+  ctx.strokeStyle = "#38bdf8"; ctx.lineWidth = 2; ctx.lineJoin = "round"; ctx.beginPath();
   prices.forEach((p, i) => (i ? ctx.lineTo(x(i), y(p)) : ctx.moveTo(x(i), y(p))));
   ctx.stroke();
 
   const x0 = x(prices.length - 1), x1 = x(prices.length - 1 + ahead / 3);
-  ctx.fillStyle = "rgba(76,194,255,.22)";
+  ctx.fillStyle = "rgba(129,140,248,.35)";
   ctx.beginPath(); ctx.moveTo(x0, y(f.last_price)); ctx.lineTo(x1, y(f.high)); ctx.lineTo(x1, y(f.low)); ctx.closePath(); ctx.fill();
   ctx.strokeStyle = "#e6edf3"; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
   ctx.beginPath(); ctx.moveTo(x0, y(f.last_price)); ctx.lineTo(x1, y(f.median)); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(x0, y(f.last_price), 4, 0, 7); ctx.fill();
   $("chartnote").textContent =
     `Line: last ${prices.length} trading days. Shaded cone: 80% range two trading days ahead ($${fmt(f.low)} to $${fmt(f.high)}).`;
 }
@@ -143,17 +150,21 @@ $("recalc").addEventListener("click", async () => {
 
 $("brief").addEventListener("click", async () => {
   const button = $("brief"), out = $("briefing");
-  button.disabled = true; out.className = ""; out.textContent = "Researching news, sentiment and prices… this takes 1 to 3 minutes.";
+  button.disabled = true; out.className = "answer show"; out.replaceChildren();
+  const spin = document.createElement("span"); spin.className = "spin";
+  out.append(spin, "Researching news, sentiment and prices… this takes 1 to 3 minutes.");
   try {
     const r = await getJSON("/api/brief", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question: $("question").value }),
     });
-    out.textContent = r.briefing;
+    out.className = "answer show"; out.textContent = r.briefing;
   } catch (err) {
-    out.className = "err"; out.textContent = err.message;
+    out.className = "answer show err"; out.textContent = err.message;
   } finally { button.disabled = false; }
 });
+
+document.querySelectorAll("#chips .chip").forEach((c) => c.addEventListener("click", () => { $("question").value = c.textContent; $("question").focus(); }));
 
 window.addEventListener("resize", () => { if (historyData) loadForecast($("price").value || undefined).catch(() => {}); });
 init();

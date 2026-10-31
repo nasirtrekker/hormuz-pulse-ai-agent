@@ -5,31 +5,66 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hormuz Pulse: Brent 48-hour outlook</title>
 <style>
-  :root { --bg:#0f1419; --card:#18202a; --line:#2a3544; --text:#e6edf3; --mute:#8b98a8; --acc:#4cc2ff; --up:#3fb950; --down:#f85149; }
+  :root { --bg:#070b12; --card:rgba(22,30,43,.72); --line:rgba(120,150,190,.18); --text:#eaf1f8; --mute:#93a3b8; --acc:#38bdf8; --acc2:#818cf8; --up:#34d399; --down:#fb7185; }
   * { box-sizing: border-box; }
-  body { margin:0; font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
-  main { max-width:960px; margin:0 auto; padding:20px 16px 48px; }
-  h1 { font-size:1.5rem; margin:0 0 4px; } h2 { font-size:1.05rem; margin:0 0 10px; }
-  .sub { color:var(--mute); margin:0 0 18px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:16px; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; }
-  .stat .v { font-size:1.6rem; font-weight:650; } .stat .k { color:var(--mute); font-size:.85rem; }
-  canvas { width:100%; height:300px; display:block; }
-  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-  input, button { font:inherit; border-radius:8px; border:1px solid var(--line); padding:9px 12px; background:#0f1419; color:var(--text); }
-  input { flex:1; min-width:220px; } button { background:var(--acc); color:#04141f; border:0; font-weight:650; cursor:pointer; }
+  body { margin:0; font:16px/1.55 Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif; color:var(--text);
+    background: radial-gradient(900px 500px at 15% -10%, rgba(56,189,248,.16), transparent 60%), radial-gradient(800px 500px at 100% 0%, rgba(129,140,248,.16), transparent 55%), var(--bg); min-height:100vh; }
+  main { max-width:1000px; margin:0 auto; padding:28px 18px 56px; }
+  .hero { padding:18px 0 22px; }
+  .badge { display:inline-flex; gap:8px; align-items:center; font-size:.78rem; color:var(--acc); border:1px solid var(--line); border-radius:999px; padding:4px 12px; background:rgba(56,189,248,.08); }
+  .badge i { width:8px; height:8px; border-radius:50%; background:var(--up); box-shadow:0 0 0 4px rgba(52,211,153,.18); }
+  h1 { font-size:clamp(2rem,5vw,3rem); line-height:1.1; margin:14px 0 10px; letter-spacing:-.02em; background:linear-gradient(90deg,#fff,#9fd8ff 60%,#b3b9ff); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  h2 { font-size:1.05rem; margin:0 0 12px; letter-spacing:.01em; }
+  .sub { color:var(--mute); margin:0; max-width:680px; font-size:1.05rem; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px; margin-bottom:18px; backdrop-filter:blur(8px); box-shadow:0 8px 30px rgba(0,0,0,.25); }
+  .ask { border-color:rgba(56,189,248,.35); box-shadow:0 8px 40px rgba(56,189,248,.10); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; }
+  .stat { background:rgba(255,255,255,.03); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+  .stat .v { font-size:1.7rem; font-weight:700; letter-spacing:-.01em; } .stat .k { color:var(--mute); font-size:.82rem; margin-top:2px; }
+  .stat.low .v { color:var(--down); } .stat.high .v { color:var(--up); } .stat.mid .v { color:var(--acc); }
+  canvas { width:100%; height:320px; display:block; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  input, button { font:inherit; border-radius:10px; border:1px solid var(--line); padding:11px 14px; background:rgba(7,11,18,.7); color:var(--text); }
+  input:focus { outline:2px solid var(--acc); outline-offset:1px; }
+  input { flex:1; min-width:220px; }
+  button { background:linear-gradient(90deg,var(--acc),var(--acc2)); color:#05101c; border:0; font-weight:700; cursor:pointer; transition:transform .08s, filter .15s; }
+  button:hover { filter:brightness(1.1); } button:active { transform:scale(.98); }
   button:disabled { opacity:.55; cursor:progress; }
-  table { width:100%; border-collapse:collapse; } td,th { text-align:left; padding:6px 4px; border-bottom:1px solid var(--line); }
-  th { color:var(--mute); font-weight:500; }
-  pre { white-space:pre-wrap; word-wrap:break-word; font:inherit; margin:12px 0 0; }
+  .chips { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0 0; }
+  .chip { background:rgba(255,255,255,.05); color:var(--text); border:1px solid var(--line); font-weight:500; padding:6px 12px; border-radius:999px; font-size:.85rem; }
+  table { width:100%; border-collapse:collapse; } td,th { text-align:left; padding:9px 6px; border-bottom:1px solid var(--line); }
+  th { color:var(--mute); font-weight:500; font-size:.85rem; } tr:last-child td { border-bottom:0; }
+  .answer { white-space:pre-wrap; word-wrap:break-word; margin:16px 0 0; padding:16px; border-radius:12px; background:rgba(255,255,255,.03); border:1px solid var(--line); display:none; }
+  .answer.show { display:block; }
+  .spin { display:inline-block; width:14px; height:14px; border:2px solid var(--line); border-top-color:var(--acc); border-radius:50%; animation:r .8s linear infinite; vertical-align:-2px; margin-right:8px; }
+  @keyframes r { to { transform:rotate(360deg); } }
   .note { color:var(--mute); font-size:.85rem; } .err { color:var(--down); }
+  footer { color:var(--mute); font-size:.8rem; margin-top:26px; }
   a { color:var(--acc); }
 </style>
 </head>
 <body>
 <main>
-  <h1>Hormuz Pulse</h1>
-  <p class="sub">Brent crude: what 39 years of public price data and the oil options market say about the next 48 hours, plus a live research briefing on the Strait of Hormuz.</p>
+  <header class="hero">
+    <span class="badge"><i></i> Public data, backtested, no made-up numbers</span>
+    <h1>Hormuz Pulse</h1>
+    <p class="sub">Where could Brent crude be in 48 hours? A range built from 39 years of public prices and the oil options market, plus an AI research team that reads the latest news on the Strait of Hormuz.</p>
+  </header>
+
+  <section class="card ask">
+    <h2>Ask the research team</h2>
+    <div class="row">
+      <input id="question" maxlength="1000" value="Predict Brent for the next 48 hours." aria-label="Your question">
+      <button id="brief">Ask</button>
+    </div>
+    <div class="chips" id="chips">
+      <button class="chip" type="button">What is driving oil prices today?</button>
+      <button class="chip" type="button">How risky is the Strait of Hormuz right now?</button>
+      <button class="chip" type="button">Predict Brent for the next 48 hours.</button>
+    </div>
+    <p class="note">Gemini searches current news, sentiment and the latest price, then a critic checks the answer. Takes 1 to 3 minutes. A few questions per hour per visitor.</p>
+    <div class="answer" id="briefing" aria-live="polite"></div>
+  </section>
 
   <section class="card">
     <div class="grid" id="stats"><div class="note">Loading Brent data…</div></div>
@@ -62,17 +97,7 @@
     <p class="note" id="evnote"></p>
   </section>
 
-  <section class="card">
-    <h2>Live research briefing</h2>
-    <p class="note">Gemini searches current news, sentiment and the latest price, then a critic checks the result. Takes 1 to 3 minutes. Limited to a few briefings per hour.</p>
-    <div class="row">
-      <input id="question" maxlength="1000" value="Predict Brent for the next 48 hours." aria-label="Question">
-      <button id="brief">Generate briefing</button>
-    </div>
-    <pre id="briefing" aria-live="polite"></pre>
-  </section>
-
-  <p class="note">Educational only, not financial advice. Data: FRED (Brent spot DCOILBRENTEU, CBOE crude oil volatility OVXCLS, VIX, dollar index) and the Caldara-Iacoviello Geopolitical Risk Index (daily, from newspaper coverage). Briefings use Google Search and Gemini, and may contain errors: check the cited sources.</p>
+  <footer>Educational only, not financial advice. Data: FRED (Brent spot DCOILBRENTEU, CBOE crude oil volatility OVXCLS, VIX, dollar index) and the Caldara-Iacoviello Geopolitical Risk Index (daily, from newspaper coverage). Briefings use Google Search and Gemini, and may contain errors: check the cited sources.</footer>
 </main>
 <script src="/static/app.js"></script>
 </body>
