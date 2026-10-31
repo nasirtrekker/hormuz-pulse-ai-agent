@@ -8,6 +8,8 @@
 ![Guardrails](https://img.shields.io/badge/guardrails-ingress%20%C2%B7%20tool%20%C2%B7%20egress-E34F26)
 ![Data](https://img.shields.io/badge/data-public%20only-1F9D55)
 
+🎬 **Demo video:** [docs/demo.mp4](docs/demo.mp4) (regenerate with `python scripts/record_demo.py`)
+
 A web app for forecasters, investors and the public. Open the link and you see
 real Brent crude history, a data-driven 48-hour price range with its backtested
 reliability, and a box that runs a team of Gemini research agents (Google ADK)
@@ -206,7 +208,7 @@ flowchart TB
         CR[Cloud Run service hormuz-pulse<br/>FastAPI: app/main.py<br/>runtime service account]
         CR -->|aiplatform.user| VX[Vertex AI<br/>Gemini models]
         VX --- GS[Grounding with Google Search]
-        CR -. "optional, role modelarmor.user" .-> MA[Model Armor<br/>input and output templates]
+        CR -.->|optional, modelarmor.user| MA[Model Armor<br/>input and output templates]
         CR -->|stdout logs, no question text| LG[Cloud Logging]
         CR --- MEM[(Instance RAM<br/>chat sessions, traces)]
     end
