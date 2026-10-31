@@ -9,11 +9,17 @@ MODEL_ARMOR_LOCATION="${MODEL_ARMOR_LOCATION:-us-central1}"
 SERVICE="hormuz-pulse"
 RUNTIME_SA_NAME="hormuz-pulse-runtime"
 PUBLIC_SERVICE="${PUBLIC_SERVICE:-false}"
+SKIP_BOOTSTRAP="${SKIP_BOOTSTRAP:-false}"
 PYTHON="$SCRIPT_DIR/.venv/bin/python"
 ADK="$SCRIPT_DIR/.venv/bin/adk"
 
+# Local runs use the project venv; CI uses the tools already on PATH.
 if [[ ! -x "$PYTHON" || ! -x "$ADK" ]]; then
-  echo "Project environment is missing. Create .venv and install hormuz/requirements.txt first." >&2
+  PYTHON="$(command -v python3 || true)"
+  ADK="$(command -v adk || true)"
+fi
+if [[ -z "$PYTHON" || -z "$ADK" ]]; then
+  echo "adk not found. Create .venv and install hormuz/requirements.txt first." >&2
   exit 1
 fi
 
@@ -43,34 +49,40 @@ if ! gcloud auth list --filter=status:ACTIVE --format='value(account)' | grep -q
 fi
 
 gcloud config set project "$PROJECT"
-gcloud services enable \
-  run.googleapis.com \
-  cloudbuild.googleapis.com \
-  artifactregistry.googleapis.com \
-  iam.googleapis.com \
-  aiplatform.googleapis.com \
-  modelarmor.googleapis.com \
-  --project "$PROJECT"
-
 RUNTIME_SA="${RUNTIME_SA_NAME}@${PROJECT}.iam.gserviceaccount.com"
-if [[ -z "$(gcloud iam service-accounts list \
-  --project "$PROJECT" \
-  --filter="email=$RUNTIME_SA" \
-  --format='value(email)')" ]]; then
-  gcloud iam service-accounts create "$RUNTIME_SA_NAME" \
+
+# One-time admin setup. CI sets SKIP_BOOTSTRAP=true because its deployer
+# identity deliberately has no permission to change IAM or enable APIs.
+if [[ "$SKIP_BOOTSTRAP" != "true" ]]; then
+  gcloud services enable \
+    run.googleapis.com \
+    cloudbuild.googleapis.com \
+    artifactregistry.googleapis.com \
+    iam.googleapis.com \
+    aiplatform.googleapis.com \
+    modelarmor.googleapis.com \
+    --project "$PROJECT"
+
+  if [[ -z "$(gcloud iam service-accounts list \
     --project "$PROJECT" \
-    --display-name="Hormuz Pulse Cloud Run runtime"
+    --filter="email=$RUNTIME_SA" \
+    --format='value(email)')" ]]; then
+    gcloud iam service-accounts create "$RUNTIME_SA_NAME" \
+      --project "$PROJECT" \
+      --display-name="Hormuz Pulse Cloud Run runtime"
+  fi
+
+  gcloud projects add-iam-policy-binding "$PROJECT" \
+    --member="serviceAccount:$RUNTIME_SA" \
+    --role="roles/aiplatform.user" \
+    --condition=None >/dev/null
+
+  gcloud projects add-iam-policy-binding "$PROJECT" \
+    --member="serviceAccount:$RUNTIME_SA" \
+    --role="roles/modelarmor.user" \
+    --condition=None >/dev/null
+
 fi
-
-gcloud projects add-iam-policy-binding "$PROJECT" \
-  --member="serviceAccount:$RUNTIME_SA" \
-  --role="roles/aiplatform.user" \
-  --condition=None >/dev/null
-
-gcloud projects add-iam-policy-binding "$PROJECT" \
-  --member="serviceAccount:$RUNTIME_SA" \
-  --role="roles/modelarmor.user" \
-  --condition=None >/dev/null
 
 if [[ "$PUBLIC_SERVICE" == "true" ]]; then
   ACCESS_FLAGS=(--allow-unauthenticated)

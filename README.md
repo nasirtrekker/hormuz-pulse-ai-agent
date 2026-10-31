@@ -81,6 +81,65 @@ protected by IAM authentication unless you set `PUBLIC_SERVICE=true`. Egress is
 left open because the agents must reach Vertex AI and Google Search; restricting
 it needs a VPC with Cloud NAT and is not configured here.
 
+## Architecture
+
+```mermaid
+flowchart TD
+    U[User] --> I[Ingress guard + Model Armor input template]
+    I -->|blocked| X[Refusal message]
+    I --> P
+    subgraph P[ParallelAgent: research with Google Search]
+        N[news] ~~~ S[sentiment] ~~~ M[market data]
+    end
+    P --> RG[Research guard: sanitize, range-check, Model Armor input template]
+    RG --> PR[Predictor: heuristic tool + tool-output guard]
+    PR --> C[Critic]
+    C --> E[Egress guard: redact, disclaimer, Model Armor output template]
+    E --> O[Briefing]
+```
+
+The pipeline is an ADK `SequentialAgent` in `hormuz/agent.py`. Agents share state
+through `output_key` and `{placeholders}`. The forecast is a fixed formula, not
+an ML model; Gemini only researches and critiques.
+
+## CI/CD and operations
+
+| Stage | Trigger | What runs |
+|---|---|---|
+| CI | every pull request and push to `main` | unit tests, attack-corpus regression (`tests/data/attack_corpus.json`), `adk eval` on `evals/guardrails.evalset.json`, secret scan (gitleaks), script syntax checks. No cloud credentials, no model calls. |
+| CD | CI passes on `main`, or manual run | keyless Workload Identity Federation, then `deploy.sh` with `SKIP_BOOTSTRAP=true`, then a check that the new revision is ready. Uses the `production` GitHub environment, so you can require manual approval there. |
+| Dependencies | weekly | Dependabot for pip and GitHub Actions. |
+
+Separation of duties: the CI deployer service account can deploy Cloud Run
+revisions but cannot change IAM or call Vertex AI. The runtime service account
+can call Vertex AI and Model Armor but cannot deploy. Admin setup (APIs, runtime
+account, Model Armor templates) is a one-time manual step.
+
+One-time setup by a project admin:
+
+```bash
+./deploy.sh hormuz-pulse-agent                      # APIs, runtime service account, first deploy
+scripts/setup_cicd.sh hormuz-pulse-agent            # keyless GitHub access; prints the variables to set
+```
+
+Then add the printed values as GitHub repository variables (no secrets are
+needed) and, optionally, add required reviewers to the `production` environment.
+
+Guardrail changes must keep the attack corpus green: add every new attack string
+to `tests/data/attack_corpus.json` so it can never regress. Live-model
+evaluation (`adk eval` with real forecasts) calls Vertex AI and costs money, so
+it is deliberately not part of CI.
+
+Rollback: Cloud Run keeps previous revisions.
+
+```bash
+gcloud run revisions list --service hormuz-pulse --region europe-west2
+gcloud run services update-traffic hormuz-pulse --region europe-west2 --to-revisions REVISION=100
+```
+
+Logs: `gcloud run services logs read hormuz-pulse --region europe-west2`. Model
+Armor blocks are logged with the filter names only, never the user's text.
+
 ## Local development
 
 Requirements: Python 3.10 or later, [uv](https://docs.astral.sh/uv/getting-started/installation/),

@@ -1,0 +1,2 @@
+-r hormuz/requirements.txt
+google-adk[eval]==1.18.0

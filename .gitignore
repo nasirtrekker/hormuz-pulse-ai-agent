@@ -15,3 +15,6 @@ __pycache__/
 .config/
 .gcloud/
 !.env.example
+
+# ADK local state and eval history
+.adk/
