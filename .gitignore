@@ -1,0 +1,16 @@
+.venv/
+.venv-*/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.json.key
+*service-account*.json
+*credentials*.json
+.config/
+.gcloud/
